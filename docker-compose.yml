@@ -1,0 +1,142 @@
+# Convenience wrapper over `docker run` with the right RT caps and host
+# networking. Run from the project root:
+#
+#   docker compose up
+#
+# Override the robot IP via env var:
+#
+#   FR3_ROBOT_IP=192.168.1.11 docker compose up
+#
+# RT settings: privileged + uncapped rttime + 8 GiB memlock so the
+# 1 kHz control loop never trips a kernel limit.
+
+services:
+  fr3-stack:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        LIBFRANKA_VERSION: 0.17.0
+    image: fr3-stack:latest
+    # Host networking so workstation can reach 5555/5556 directly and the
+    # daemon can reach the robot's FCI on its dedicated subnet.
+    network_mode: host
+    privileged: true            # SCHED_FIFO + RT scheduling, hardware access
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      rtprio: 99                # max RT priority
+      rttime: -1                # uncapped RT CPU time (libfranka 1 kHz loop)
+      memlock: 8589934592       # 8 GiB locked, matches franka_ros2 reference
+    # Mount the in-tree FT-sensor calibration directory so the daemon can
+    # pick up ft_calibration.yaml on boot. The Python tools
+    # (fr3-ft-calibrate) write into the host path, the daemon reads from
+    # /opt/fr3-stack/calib (which is the C++-side default in
+    # default_calib_path()). Read-only on the daemon side.
+    volumes:
+      - ./fr3_stack/sensors/bota/config:/opt/fr3-stack/calib:ro
+    # Argv assembled by /bin/sh so env-conditional flags can use shell-native
+    # ${VAR:+--flag}, which drops the token entirely when VAR is unset.
+    # Compose's YAML-list substitution cannot drop an element — an empty
+    # ${VAR:+...} becomes a literal "" in argv and trips the daemon's arg
+    # parser ("args error: unknown arg: "). All flags whose presence (vs
+    # value) depends on env state must go through this shell layer.
+    #
+    # FR3_FT_CONTROLLERS_RAW=1 forces admittance / hybrid to read RAW even
+    # if the calibration YAML is loaded. wrenchFt on the wire stays
+    # compensated either way. Empty (default) = controllers see compensated.
+    #
+    # Compose escape: $$ -> $ at YAML-load, so $$VAR / $${VAR:+...} reach
+    # /bin/sh as $VAR / ${VAR:+...} for runtime evaluation.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        exec stdbuf -oL -eL fr3-stack \
+          --robot              "$$FR3_ROBOT_IP" \
+          --cmd-port           "$$FR3_CMD_PORT" \
+          --state-port         "$$FR3_STATE_PORT" \
+          --initial-controller "$$FR3_INITIAL_CONTROLLER" \
+          $${FR3_FT_SENSOR_KIND:+--ft-sensor-kind "$$FR3_FT_SENSOR_KIND"} \
+          $${FR3_FT_SENSOR_CONFIG:+--ft-sensor-config "$$FR3_FT_SENSOR_CONFIG"} \
+          $${FR3_FT_CONTROLLERS_RAW:+--ft-controllers-raw}
+    environment:
+      FR3_ROBOT_IP:           "${FR3_ROBOT_IP:-192.168.1.11}"
+      FR3_CMD_PORT:           "${FR3_CMD_PORT:-5555}"
+      FR3_STATE_PORT:         "${FR3_STATE_PORT:-5556}"
+      FR3_INITIAL_CONTROLLER: "${FR3_INITIAL_CONTROLLER:-idle}"
+      FR3_FT_SENSOR_KIND:     "${FR3_FT_SENSOR_KIND:-}"
+      FR3_FT_SENSOR_CONFIG:   "${FR3_FT_SENSOR_CONFIG:-}"
+      FR3_FT_CONTROLLERS_RAW: "${FR3_FT_CONTROLLERS_RAW:-}"
+    # Safety-first: no auto-restart. If the RT loop aborts (reflex / FCI
+    # drop / etc.) the container exits and STAYS exited so the operator
+    # actually sees the error and recovers manually. Auto-restart used to
+    # spam-loop "Reflex" rejections every second.
+    restart: "no"
+
+  # Cartesian-impedance experiment harness — direct libfranka, no ZMQ/capnp.
+  # Mutually exclusive with `fr3-stack`: stop the daemon first
+  # (`docker compose down`) before running this.
+  #
+  #   mkdir -p csv  # CSV outputs land here on host
+  #   docker compose --profile test run --rm cart-test \
+  #       ${FR3_ROBOT_IP:-192.168.1.11} \
+  #       --mode osc --axis z --amp 0.05 --duration 30 --csv /csv/osc_z.csv
+  #
+  # Anything after the service name is passed verbatim as cartesian_test argv.
+  # `--profile test` keeps `docker compose up` from accidentally starting
+  # this alongside the daemon.
+  cart-test:
+    profiles: ["test"]
+    image: fr3-stack:latest
+    network_mode: host
+    privileged: true
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      rtprio: 99
+      rttime: -1
+      memlock: 8589934592
+    entrypoint: ["/usr/local/bin/cartesian_test"]
+    # Run as the host user so CSVs land in ./csv with normal ownership
+    # (avoids the root-owned-files problem when later writing from Python on
+    # the host). Most Linux desktop users have UID/GID = 1000; export UID
+    # / GID in your shell or .env if your account differs. SCHED_FIFO still
+    # works for non-root because privileged + rtprio ulimit grant it.
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - ${FR3_CSV_DIR:-./csv}:/csv
+    restart: "no"
+
+  # Bota FT-sensor smoke test — no robot, no ZMQ, no capnp. Streams the raw
+  # sensor-frame wrench as CSV to stdout; visible via `./fr3-stack ft logs`
+  # or `docker compose logs fr3-stack-ft`. Use this to verify EtherCAT/Bota
+  # wiring before bringing up the full daemon, or when the FR3 arm isn't
+  # available.
+  #
+  # Manage via the wrapper:
+  #   ./fr3-stack ft up          # detached + tail logs
+  #   ./fr3-stack ft up --attach # foreground
+  #   ./fr3-stack ft logs -f
+  #   ./fr3-stack ft down
+  #
+  # `--profile ft` keeps `docker compose up` from starting it alongside the
+  # daemon. Calibration (`fr3-ft-calibrate`) still needs the arm — it reads
+  # R_O_EE from the daemon's state stream.
+  fr3-stack-ft:
+    profiles: ["ft"]
+    image: fr3-stack:latest
+    network_mode: host
+    privileged: true
+    cap_add:
+      - SYS_NICE
+    ulimits:
+      rtprio: 99
+      rttime: -1
+      memlock: 8589934592
+    entrypoint: ["/usr/local/bin/fr3-ft"]
+    command:
+      - "--config"
+      - "${FR3_FT_SENSOR_CONFIG:-/opt/bota/driver_config/bota_binary.json}"
+      - "--hz"
+      - "${FR3_FT_HZ:-250}"
+    restart: "no"

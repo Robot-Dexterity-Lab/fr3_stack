@@ -1,0 +1,57 @@
+# Cartesian admittance defaults.
+#
+# Layered: outer virtual M-K-D driven by F_ext produces a moving compliant
+# target; inner cartesian impedance loop tracks it.
+
+# F_ext source is determined on the daemon side: calibrated FT sensor
+# (preferred — pass --ft-sensor-kind to fr3-stack) or libfranka's O_F_ext_hat_K
+# estimate (~3-5 N noise floor, biased by attached load — debug only).
+
+# --- Outer (admittance) loop: virtual dynamics in base frame ---
+# Values follow pixi_franka_ros2/config/controllers.yaml (cartesian_admittance_controller).
+admittance:
+  M: [  5.0,   5.0,   5.0,   0.5,   0.5,   0.5]    # virtual mass / inertia
+  K: [200.0, 200.0, 200.0,  10.0,  10.0,  10.0]    # virtual spring (toward target)
+  D: [ 50.0,  50.0,  50.0,   5.0,   5.0,   5.0]    # virtual damper
+
+# --- Inner (impedance) loop: tracks the compliant target ---
+# Values follow pixi_franka_ros2/config/controllers.yaml. D = 2·√K (pixi's
+# auto-D convention when `d_pos_x: -1`). With M_adm=5 and the rate-sat /
+# error-clip / output-τ EMA added in cpp, ζ_outer ≈ 0.45 no longer rings.
+impedance:
+  K: [3000.0, 3000.0, 3000.0,  50.0,  50.0,  50.0]
+  D: [109.5, 109.5, 109.5, 14.14, 14.14, 14.14]
+
+# Nullspace — pixi defaults. Soft K=10 with D=9 (~over-damped, not 2·√K)
+# and a hard 15 Nm per-joint clip lets the elbow drift under operator push
+# without fighting back. q_null all-zero = snapshot at activation.
+q_null: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+K_null: 10.0
+D_null: 9.0
+max_tau_null: 15.0
+
+# EMA on target pose. 0.1 matches pixi `filter.target_pose`.
+filter_alpha: 0.1
+
+# F_ext EMA. 1.0 = pass-through (pixi has no wrench filter — it relies on
+# the bota-published `/bota_wrench_compensated` topic, which is already
+# calibrated and reasonably clean). Lower (e.g. 0.05) if you fall back to
+# libfranka's O_F_ext_hat_K and need the M⁻¹ amplification damped.
+wrench_filter_alpha: 1.0
+
+# EMA on raw dq before the inner D-term + nullspace damping. 0.5 matches
+# pixi `filter.dq`.
+dq_filter_alpha: 0.5
+
+# EMA on final commanded τ. 0.5 matches pixi `filter.output_torque`.
+output_torque_filter_alpha: 0.5
+
+# Per-tick |Δτ| cap (Nm). Pixi default 0.5 → 500 Nm/s at 1 kHz. 0 = off.
+max_delta_tau: 0.5
+
+# Per-axis pose-error clip applied before K·e. Matches pixi
+# `task.error_clip` defaults (0.1m / 0.5 rad).
+error_clip: [0.1, 0.1, 0.1, 0.5, 0.5, 0.5]
+
+# Pixi default — friction comp on.
+use_friction: true

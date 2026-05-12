@@ -1,0 +1,14 @@
+# Joint-space impedance defaults.
+#
+# τ = K_joint · (q_target − q) − D_joint · dq    (+ coriolis + joint_limit)
+#
+# 7-vectors in joint order j1..j7. Higher gains on the proximal joints
+# (j1-j4) since they carry more inertia; lower on distal (j5-j7).
+
+K_joint: [600.0, 600.0, 600.0, 600.0, 250.0, 150.0,  50.0]
+D_joint: [ 50.0,  50.0,  50.0,  50.0,  30.0,  25.0,  15.0]
+
+# 1st-order LP on the user target.
+filter_alpha: 0.05
+
+use_friction: false

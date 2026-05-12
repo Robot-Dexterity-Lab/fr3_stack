@@ -1,0 +1,135 @@
+# Hybrid profile for dense analytic XY trajectories with constant Z press
+# (e.g. circle_xy / line_x in examples/06_hybrid_force_demos.py).
+#
+# Smoothing strategy: ONE source of target smoothing only, not two stacked.
+#   * linear_interp: true       — kills the 100 Hz step train at the wire,
+#                                 producing a continuous 1 kHz target.
+#                                 Single smoother → ~10 ms phase lag (≈0.78 mm
+#                                 tangential at 78 mm/s circle speed).
+#   * filter_alpha: 1.0         — DISABLE the per-controller target EMA.
+#                                 Previously stacked on top of LERP for
+#                                 ~20 ms total lag (=1.6 mm tracking error)
+#                                 AND in the LERP-off branch failed to
+#                                 attenuate the step train enough to keep
+#                                 100 Hz energy out of joint τ (audible).
+#   * dq_filter_alpha:   0.2
+#     output_torque_filter_alpha: 0.2
+#                               — stronger than pixi 0.5. dq smoothing
+#                                 protects BOTH outer D·J·dq AND
+#                                 friction_compensation (fp1·tanh
+#                                 (fp2·dq), fp2=50 amplifies small
+#                                 dq noise into τ ringing once
+#                                 use_friction=true). 0.2 cuts 100 Hz
+#                                 by 12 dB, 200 Hz by 18 dB.
+#   * use_friction: true        — needed at the lowered outer K. Without
+#                                 it, j0 static friction (~0.7 Nm) blocks
+#                                 low-speed circle commands (K·e at
+#                                 small e too small to break j0 free).
+#                                 Disturbance robustness comes from
+#                                 lower K + tighter error_clip, not
+#                                 from leaving friction uncompensated.
+#   * error_clip: 0.05 m / 0.3 rad
+#                               — half the default. Caps |K·e| at 150 N
+#                                 per axis instead of 300 N so a big
+#                                 yank can't slam joint τ to saturation.
+#
+# Z-axis force smoothing (force-controlled axis when used with S=[1,1,0,..]):
+#   * wrench_filter_alpha: 0.02 — ~1 Hz LP on F_ext. Stronger than the 0.05
+#                                 default-noise tier because a constant
+#                                 Z press doesn't need fast force tracking.
+#   * wrench_deadband Z = 1.0 N — kills bota's contact-noise RMS (0.3-0.8 N)
+#                                 completely. Trade: ±1 N DC force error.
+#   * admittance.D[2]: 80       — Z-damping bump (ζ 0.79 → 1.26).
+#   * inner_v_filter_alpha: 0.03
+#                               — stronger than base 0.1 since dense
+#                                 streaming targets at 100 Hz produce
+#                                 the most LERP-boundary energy. ~30 ms
+#                                 LP, still leaves bandwidth for ~5 Hz.
+#
+# Profile files are self-contained — load_controller_config does no merging.
+
+# --- Force/velocity decomposition ---
+n_af: 0
+Tr: identity
+target_wrench: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# --- Inner admittance ---
+admittance:
+  M: [  5.0,   5.0,   5.0,   0.5,   0.5,   0.5]
+  K: [200.0, 200.0, 200.0, 10.0, 10.0, 10.0]
+  D: [ 50.0,  50.0,  80.0,   5.0,   5.0,   5.0]
+
+# --- Force-tracking PID ---
+force_pid:
+  P_trans: 0.0
+  I_trans: 0.0
+  D_trans: 0.0
+  P_rot:   0.0
+  I_rot:   0.0
+  D_rot:   0.0
+  I_limit: [10.0, 10.0, 10.0, 5.0, 5.0, 5.0]
+
+stiction: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+max_spring_force:  50.0
+max_spring_torque: 10.0
+
+# --- Outer impedance ---
+# K halved from hybrid.yaml's [3000, 3000, 3000]. That base value is ~7.5×
+# pixi/franka_ros2 defaults, optimized for tight pose hold during contact.
+# For dense streaming circle/sweep tasks K=3000 is the dominant gain on
+# every noise path (K·e from inner-SE3 noise, D·J·dq with auto-D = 2·√K).
+# K=1500 halves the joint-τ noise contribution end-to-end while still
+# being stiff enough to follow analytic trajectories within ~1 mm. D
+# tracks K to keep ζ ≈ 1 at m_cart ≈ 1 (D = 2·√K, CRISP/pixi convention).
+impedance:
+  K: [1500.0, 1500.0, 1500.0,  30.0,  30.0,  30.0]
+  D: [ 77.46,  77.46,  77.46, 10.95, 10.95, 10.95]
+
+q_null: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+K_null: 10.0
+D_null: 9.0
+max_tau_null: 15.0
+
+# Sole target smoother; kills the 100 Hz step train. See header.
+linear_interp: true
+
+# EMA disabled (pass-through). Previously stacked with LERP → double lag.
+filter_alpha: 1.0
+
+# ~1 Hz LP (was 0.05 ≈ 3 Hz). Constant-force press tasks (e.g. circle at
+# fixed Z load) don't need fast force tracking; this dumps essentially all
+# bota 100-500 Hz noise before it can drive admittance's M⁻¹·F integrator.
+wrench_filter_alpha: 0.02
+
+# Stronger than base (0.1) — dense streaming targets at 100 Hz produce
+# the most LERP-boundary energy and need the most smoothing on the inner_v
+# damping reference. ~30 ms LP at 1 kHz still leaves bandwidth for 1 Hz
+# circles (any tracking task < ~5 Hz is fine).
+inner_v_filter_alpha: 0.03
+
+# Soft shrinkage. Z bumped to 1.0 N (was 0.5) — bota's contact noise RMS
+# is 0.3-0.8 N, so a 1.0 N deadband kills it completely. Trade: steady-state
+# Z force error up to ±1 N (acceptable when commanding 3-5 N press).
+wrench_deadband: [0.3, 0.3, 1.0, 0.05, 0.05, 0.05]
+
+# dq smoothing serves two paths: outer D·J·dq damping AND friction_comp's
+# fp1·tanh(fp2·dq) which has tanh slope 50 → small dq noise amplifies into
+# τ ringing once use_friction=true. 0.2 ≈ 4 ms LP (was 0.3 ≈ 2.3 ms): cuts
+# 100 Hz by 12 dB, 200 Hz by 18 dB. Friction comp's tanh sees a much
+# quieter dq → no more HF τ injection from the friction path.
+dq_filter_alpha: 0.2
+# Final τ LP — same logic, slightly stronger than before.
+output_torque_filter_alpha: 0.2
+max_delta_tau: 0.5
+# Tighter error clip caps |K·e| under big yanks: 0.05·3000 = 150 N/axis
+# (was 300 N at 0.1 m clip). Prevents the outer loop from saturating
+# joint τ when the user pulls the EE far from inner_SE3.
+error_clip: [0.05, 0.05, 0.05, 0.3, 0.3, 0.3]
+
+# ON: needed to overcome j0 static friction (~0.6-1.0 Nm) at the moderate
+# outer K we use here. With K=1500 N/m and friction OFF, the arm needs ~1-2
+# mm of cumulative pose error before K·e can break j0 free, which kills
+# low-speed circle tracking (stick-slip or no motion). Disturbance
+# robustness is owned by error_clip + lowered K, not by leaving friction
+# uncompensated.
+use_friction: true

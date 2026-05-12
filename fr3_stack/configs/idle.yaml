@@ -1,0 +1,29 @@
+# Idle / hand-guidable mode (gravity-comp + per-joint damping + friction comp).
+#
+# Tuning notes:
+#   d_rate[i] is the velocity decay rate of joint i in [1/s]; time constant
+#   = 1/d_rate[i]. Higher = more damping = stiffer hand-guide. The defaults
+#   are tuned for a soft, franka_ros2/CRISP-like feel: J2 and J4 (heavy
+#   proximal joints) get more damping than the wrists so the arm doesn't
+#   feel "saggy" while the wrists stay free.
+#
+#   use_friction enables the Cognetti FR3 sigmoid model that cancels each
+#   joint's natural mechanical friction. Turn this OFF if you want to feel
+#   the raw arm (useful for debugging or for sensing user-applied force).
+#
+# Example tweaks:
+#   * Heavier hand: d_rate=[1,3,1,3,1,1,1] — pushes back more on every joint
+#   * Almost frictionless: use_friction=true, d_rate=[0.1,0.3,0.1,0.3,...]
+#   * Pure float (risk of velocity-violation reflex on hard push):
+#     use_friction=true, d_rate=[0,0,0,0,0,0,0]
+
+d_rate:
+  - 0.3   # J1
+  - 1.0   # J2  ← heavier (high inertia, prone to gravity sag)
+  - 0.3   # J3
+  - 1.0   # J4  ← heavier (high friction, high inertia)
+  - 0.3   # J5
+  - 0.3   # J6
+  - 0.3   # J7
+
+use_friction: true

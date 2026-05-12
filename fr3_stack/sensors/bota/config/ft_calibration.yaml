@@ -1,0 +1,25 @@
+mass: 0.13787778185856997
+center_of_mass:
+- -0.0009883256430851192
+- 0.0010282393721948724
+- 0.007660635920724039
+force_bias:
+- -7.08715535101204
+- -10.833555950374029
+- -17.085910438443655
+torque_bias:
+- -0.13863063747298865
+- 0.08861708755739998
+- 0.07976045155129108
+num_poses: 12
+mean_force_residual_N: 0.056674306705342466
+mean_torque_residual_Nm: 0.000877214008132133
+warnings:
+- "|f_bias|=21.44 N is large (typical post-tare is <2 N). The bota auto-tare may have\
+  \ failed silently \u2014 check fr3d boot stdout for '[fr3] bota: tare() failed (continuing)'.\
+  \ If tare did run, f_bias being this large means the LSQ absorbed gravity into bias\
+  \ (insufficient orientation spread; see diagnostics above)."
+rpy_ee_sensor:
+- 0.0
+- 0.0
+- 0.7853981633974483

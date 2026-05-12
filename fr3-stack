@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+# Wrapper around `docker compose` for the fr3-stack daemon container.
+#
+# Defaults:
+#   * `up <mode>` runs detached and tails logs. Ctrl+C stops the
+#     container (equivalent to `./fr3-stack down`). Pass `--attach`
+#     (or `-a`) to stay foreground; Ctrl+C there also stops it.
+#   * Mode is required and validated; an unknown mode aborts instead of
+#     silently falling back to idle.
+#   * Running `up` while a former container exists tears that one down
+#     first so the new controller mode replaces it cleanly.
+
+set -euo pipefail
+cd "$(dirname "$0")"
+
+DC=(docker compose -f docker-compose.yml)
+
+# ----- helpers -----------------------------------------------------------
+
+log()  { printf '[fr3-stack] %s\n' "$*" >&2; }
+die()  { log "error: $*"; exit 1; }
+
+usage() {
+    cat <<'EOF'
+fr3-stack — run the FR3 control daemon in Docker.
+
+usage:
+  ./fr3-stack up <mode> [--ft|--no-ft] [--attach|-a] [docker-compose flags...]
+  ./fr3-stack down
+  ./fr3-stack logs [-f]
+  ./fr3-stack ps
+  ./fr3-stack build [--no-cache]
+  ./fr3-stack ft <up|down|logs|ps> [...]
+  ./fr3-stack <other docker-compose subcommand> ...
+
+modes:
+  idle    free-drive (zero torque, gravity comp only)
+  cart    cartesian impedance, anchored at current EE pose
+  joint   joint impedance, anchored at current q
+  adm     admittance (needs --ft for a real FT sensor)
+  hybrid  force/position hybrid (needs --ft)
+
+flags:
+  --ft         enable Bota EtherCAT FT sensor; uses FR3_FT_SENSOR_CONFIG
+                or /opt/bota/driver_config/bota_binary.json by default
+  --no-ft      explicitly disable FT sensor (clears env)
+  --attach,-a  run in foreground (default: detached + auto `logs -f`;
+                in both modes Ctrl+C stops the container)
+
+ft subcommand (smoke test — Bota only, no robot connection):
+  ./fr3-stack ft up [--attach|-a]   start `fr3-stack-ft`; streams raw
+                                    sensor-frame wrench as CSV to stdout
+  ./fr3-stack ft down               stop + remove the ft service
+  ./fr3-stack ft logs [-f]          tail the ft service's CSV output
+                                    (with service-name prefix; for humans)
+  ./fr3-stack ft stream             emit clean CSV-only stdout — strips the
+                                    docker prefix + the binary's stderr
+                                    status lines. Pipe into fr3-ft-plot:
+                                      ./fr3-stack ft up
+                                      ./fr3-stack ft stream | fr3-ft-plot
+  ./fr3-stack ft ps                 status of the ft service
+
+  Note: this only verifies sensor wiring. Full FT calibration
+  (fr3-ft-calibrate) still needs the arm — it requires R_O_EE.
+
+env vars (forwarded into the container):
+  FR3_ROBOT_IP            FR3 IP                 (default: 192.168.1.11)
+  FR3_FT_SENSOR_CONFIG    Bota driver JSON path
+  FR3_FT_HZ               ft smoke-test CSV rate (default: 250)
+  FR3_CMD_PORT            workstation→NUC port   (default: 5555)
+  FR3_STATE_PORT          NUC→workstation port   (default: 5556)
+
+examples:
+  ./fr3-stack up cart                      # detached + tail logs
+  ./fr3-stack up adm --ft                  # admittance with Bota
+  ./fr3-stack up cart --attach             # foreground
+  FR3_ROBOT_IP=10.0.0.7 ./fr3-stack up cart
+  ./fr3-stack ft up                        # bota-only smoke test
+  FR3_FT_HZ=50 ./fr3-stack ft up           # slower CSV rate
+EOF
+}
+
+# ----- dispatch -----------------------------------------------------------
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+  help|-h|--help|"")
+    usage
+    exit 0
+    ;;
+
+  up)
+    mode="${1:-}"
+    case "$mode" in
+      idle|cart|joint|adm|hybrid) shift ;;
+      "")  die "missing mode. one of: idle | cart | joint | adm | hybrid" ;;
+      -*)  die "first arg to 'up' must be a mode (got '$mode'); did you mean './fr3-stack up cart $mode'?" ;;
+      *)   die "unknown mode '$mode' (expected: idle | cart | joint | adm | hybrid)" ;;
+    esac
+
+    case "$mode" in
+      idle)   FR3_INITIAL_CONTROLLER=idle ;;
+      cart)   FR3_INITIAL_CONTROLLER=cartesian_impedance ;;
+      joint)  FR3_INITIAL_CONTROLLER=joint_impedance ;;
+      adm)    FR3_INITIAL_CONTROLLER=admittance ;;
+      hybrid) FR3_INITIAL_CONTROLLER=hybrid ;;
+    esac
+    export FR3_INITIAL_CONTROLLER
+
+    # Strip --ft / --no-ft / --attach (local flags) and any --detach/-d
+    # the user redundantly passed (we add it ourselves below). Whatever's
+    # left is forwarded verbatim to `docker compose up`.
+    attach=0
+    passthrough=()
+    while (( $# > 0 )); do
+      case "$1" in
+        --ft)
+          export FR3_FT_SENSOR_KIND=bota
+          export FR3_FT_SENSOR_CONFIG="${FR3_FT_SENSOR_CONFIG:-/opt/bota/driver_config/bota_binary.json}"
+          ;;
+        --no-ft)
+          export FR3_FT_SENSOR_KIND=""
+          export FR3_FT_SENSOR_CONFIG=""
+          ;;
+        --attach|-a)
+          attach=1
+          ;;
+        -d|--detach)
+          : # default already detached; swallow
+          ;;
+        *)
+          passthrough+=("$1")
+          ;;
+      esac
+      shift
+    done
+
+    # ---- show what we're about to do --------------------------------------
+    log "mode       = $FR3_INITIAL_CONTROLLER"
+    log "robot ip   = ${FR3_ROBOT_IP:-192.168.1.11}"
+    log "cmd port   = ${FR3_CMD_PORT:-5555}"
+    log "state port = ${FR3_STATE_PORT:-5556}"
+    if [[ -n "${FR3_FT_SENSOR_KIND:-}" ]]; then
+      log "ft sensor  = ${FR3_FT_SENSOR_KIND}  (config: ${FR3_FT_SENSOR_CONFIG})"
+    else
+      log "ft sensor  = (off)"
+    fi
+
+    # Auto-down any former fr3-stack container so this `up` cleanly swaps to
+    # the new controller mode. `restart: "no"` means a crashed prior
+    # container stays as an exited remnant; without removing it, compose
+    # may reuse it instead of recreating with the new FR3_INITIAL_CONTROLLER.
+    if [[ -n "$("${DC[@]}" ps -a -q fr3-stack 2>/dev/null)" ]]; then
+      log "stopping former fr3-stack container"
+      "${DC[@]}" rm -sf fr3-stack >/dev/null
+    fi
+
+    if (( attach )); then
+      log "starting in foreground (--attach); Ctrl+C stops the container"
+      exec "${DC[@]}" up "${passthrough[@]}"
+    else
+      log "starting detached; tailing logs — Ctrl+C stops the container (same as './fr3-stack down')"
+      "${DC[@]}" up -d "${passthrough[@]}"
+      # Ctrl+C during the tail tears the stack down so `up` is symmetric
+      # with `down`. Without this trap, SIGINT only kills `logs -f` and the
+      # container keeps running. `exec` is intentionally dropped — the
+      # trap needs the shell to still be alive when the tail exits.
+      trap 'echo; log "Ctrl+C — stopping fr3-stack"; "${DC[@]}" down; exit 130' INT
+      "${DC[@]}" logs -f
+    fi
+    ;;
+
+  ft)
+    # Bota smoke-test service (`fr3-stack-ft`). Lives behind the `ft`
+    # compose profile so plain `./fr3-stack up <mode>` doesn't pull it up.
+    # Hardware-wise the FT service and the main daemon (with --ft) both
+    # want exclusive ownership of the EtherCAT/Bota link — don't run
+    # them at the same time on the same host.
+    sub="${1:-}"
+    case "$sub" in
+      up|down|logs|stream|ps) shift ;;
+      "") die "missing ft subcommand. one of: up | down | logs | stream | ps" ;;
+      *)  die "unknown ft subcommand '$sub' (expected: up | down | logs | stream | ps)" ;;
+    esac
+
+    case "$sub" in
+      up)
+        attach=0
+        passthrough=()
+        while (( $# > 0 )); do
+          case "$1" in
+            --attach|-a)  attach=1 ;;
+            -d|--detach)  : ;;
+            *)            passthrough+=("$1") ;;
+          esac
+          shift
+        done
+
+        log "ft sensor (smoke test, no robot)"
+        log "config = ${FR3_FT_SENSOR_CONFIG:-/opt/bota/driver_config/bota_binary.json}"
+        log "rate   = ${FR3_FT_HZ:-250} Hz"
+
+        if (( attach )); then
+          log "starting in foreground (--attach); Ctrl+C stops the container"
+          exec "${DC[@]}" --profile ft up fr3-stack-ft "${passthrough[@]}"
+        else
+          # Detached default — just start and quit. CSV at 250 Hz is not
+          # useful to dump on a terminal; consume it via `ft stream` or
+          # `ft logs` when the user actually wants it.
+          "${DC[@]}" --profile ft up -d fr3-stack-ft "${passthrough[@]}"
+          log "started in background. consume with one of:"
+          log "  ./fr3-stack ft stream | fr3-ft-plot   # browser plot"
+          log "  ./fr3-stack ft logs -f                # raw stdout"
+          log "stop with: ./fr3-stack ft down"
+        fi
+        ;;
+
+      down)
+        "${DC[@]}" --profile ft stop fr3-stack-ft
+        exec "${DC[@]}" --profile ft rm -f fr3-stack-ft
+        ;;
+
+      logs)
+        exec "${DC[@]}" logs "$@" fr3-stack-ft
+        ;;
+
+      stream)
+        # Clean CSV-only stdout for `| fr3-ft-plot`. Two sources of noise:
+        #   1) docker compose's `service-1  | ` line prefix → drop with
+        #      --no-log-prefix.
+        #   2) the binary's stderr status messages ("fr3-ft: opening…") get
+        #      merged into docker logs alongside stdout → filter to keep
+        #      only data rows (start with a digit).
+        # We synthesize the CSV header in awk's BEGIN block: --tail 0 skips
+        # historical buffered output (so we don't replay an hour of data
+        # if the container has been up for a while), but that also drops
+        # the binary's one-shot header line. Since `fr3-ft` always emits
+        # the same 7-col header (see src/bin/ft_dump.cpp), printing it from
+        # awk is safe and matches what fr3-ft-plot expects to parse first.
+        # Container must already be running — start it with `ft up`.
+        "${DC[@]}" logs -f --no-log-prefix --tail 0 fr3-stack-ft \
+            | awk 'BEGIN { print "t,fx,fy,fz,tx,ty,tz"; fflush() }
+                   /^[0-9]/ { print; fflush() }'
+        ;;
+
+      ps)
+        exec "${DC[@]}" --profile ft ps "$@" fr3-stack-ft
+        ;;
+    esac
+    ;;
+
+  *)
+    # Anything else (down / logs / ps / build / pull / config / ...) is
+    # forwarded verbatim to docker compose.
+    exec "${DC[@]}" "$cmd" "$@"
+    ;;
+esac

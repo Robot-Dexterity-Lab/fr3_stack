@@ -1,0 +1,46 @@
+# Cartesian impedance defaults.
+# τ = J^T · (K · (target − actual) − D · (J·dq))     (+ nullspace + coriolis)
+# Vectors are [tx, ty, tz, rx, ry, rz] in base frame. The daemon's
+# CartesianImpedanceCfg in nuc/main.cpp must agree on field names — these
+# values become the "wire defaults" sent on every send_cartesian_impedance().
+
+K: [200.0, 200.0, 200.0,  20.0,  20.0,  20.0]    # stiffness
+D: [ 28.0,  28.0,  28.0,   9.0,   9.0,   9.0]    # damping (≈2·sqrt(K))
+
+# Nullspace anchor. All-zero is treated by the daemon as "snapshot the
+# activation pose" — pulling joints toward 0 is bad on FR3. Override
+# explicitly to pin the elbow somewhere specific.
+q_null: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+K_null: 100.0
+# Explicit nullspace damping. 0.0 = auto (2·√K_null = 20 at K_null=100).
+# Set non-zero to decouple from K_null when the elbow rings or feels soggy.
+D_null: 0.0
+# Per-joint clip on the nullspace τ. 0.0 = no clip. Use 10-20 Nm to keep
+# the elbow term from saturating joint limits near singularities.
+max_tau_null: 0.0
+
+# 1st-order LP smoothing for the user target. Hides the workstation→NUC
+# step rate. 0 = pass-through (filter frozen), 1 = no smoothing.
+# Effective only when ema=true; ignored otherwise.
+filter_alpha: 0.05
+
+# Target-smoothing toggles. Both default true (historical behavior).
+#   linear_interp: LERP/SLERP between received cmds in main.cpp dispatch.
+#                  Bridges sparse client cmds → 1 kHz daemon target.
+#   ema:           First-order LP filter on the (possibly LERP'd) target
+#                  inside the controller. Adds ~19 ms phase lag at α=0.05.
+# Recommended: with linear_interp=true and target rate <5 Hz, set ema=false
+# (the LERP output is already continuous; EMA on top is pure phase lag).
+linear_interp: true
+ema:           true
+
+# Feed-forward wrench in base frame: τ += J^T · target_wrench. Use sparingly;
+# for closed-loop force tracking prefer the hybrid controller (which has FT-PID).
+target_wrench: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# Per-axis error clip (CRISP error_clip). 0 disables clipping on that axis.
+max_delta: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# Stribeck friction comp (τ += fp1·tanh(fp2·dq) + fp3·dq). Defaults baked
+# into the daemon for FR3.
+use_friction: false

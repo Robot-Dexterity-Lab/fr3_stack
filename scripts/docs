@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Build the static docs (if site/ missing or --rebuild) and serve it over
+# HTTP, bound to 0.0.0.0 so LAN browsers and SSH-forwarded clients can reach
+# it. Designed to be runnable from anywhere — it cd's to the repo root first.
+#
+# usage:
+#   ./scripts/docs                  # build if site/ missing, then serve
+#   ./scripts/docs --rebuild        # force `mkdocs build` first
+#   ./scripts/docs --port 9000      # bind port 9000 (default 8000)
+#   DOCS_PORT=9000 ./scripts/docs   # same, via env
+#
+# tip: `alias docs="$PWD/scripts/docs"` in your ~/.bashrc lets you run bare
+# `docs` from anywhere. Or symlink:  ln -s "$PWD/scripts/docs" ~/.local/bin/docs
+set -euo pipefail
+
+cd "$(dirname "$(readlink -f "$0")")/.."
+
+PORT="${DOCS_PORT:-8000}"
+REBUILD=0
+while (( $# > 0 )); do
+  case "$1" in
+    --rebuild)   REBUILD=1; shift ;;
+    --port)      PORT="$2"; shift 2 ;;
+    --port=*)    PORT="${1#--port=}"; shift ;;
+    -h|--help)   sed -n '2,12p' "$0" | sed 's/^# \?//'; exit 0 ;;
+    *)           echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+log() { printf '[docs] %s\n' "$*" >&2; }
+
+if [[ ! -f site/index.html || $REBUILD -eq 1 ]]; then
+  command -v mkdocs >/dev/null || {
+    log "error: mkdocs not installed. install with:"
+    log "       pip install --user mkdocs mkdocs-material"
+    exit 1
+  }
+  log "building site/ ..."
+  if ! mkdocs build 2>/tmp/fr3-docs-build.err; then
+    cat /tmp/fr3-docs-build.err >&2
+    if grep -qiE "mkdocs[_-]material|theme.*material" /tmp/fr3-docs-build.err; then
+      log "missing mkdocs-material theme. install with:"
+      log "       pip install --user mkdocs-material"
+    fi
+    rm -f /tmp/fr3-docs-build.err
+    exit 1
+  fi
+  rm -f /tmp/fr3-docs-build.err
+  log "build done."
+else
+  log "site/ already built — serving as-is (use --rebuild to refresh)"
+fi
+
+log "serving on:"
+log "  http://192.168.1.8:$PORT/   (default)"
+log "  http://127.0.0.1:$PORT/     (local)"
+hostname -I 2>/dev/null | tr ' ' '\n' | sed '/^$/d' | while read -r ip; do
+  [[ "$ip" == "192.168.1.8" ]] && continue
+  log "  http://$ip:$PORT/"
+done
+log "Ctrl+C to stop."
+
+exec python3 -m http.server "$PORT" --bind 0.0.0.0 --directory site

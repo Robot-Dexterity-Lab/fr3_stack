@@ -1,0 +1,11 @@
+# fr3 client config. Copy to one of:
+#   ./fr3.yaml                    (per-project, gitignored)
+#   ~/.config/fr3/config.yaml     (user-global)
+# or point $FR3_CONFIG at it explicitly.
+
+nuc_host:  192.168.1.8       # where fr3-stack daemon listens (ZMQ 5555/5556)
+robot_ip:  192.168.1.11      # FR3's own IP (libfranka, Desk web UI)
+
+desk:
+  user:     "<YOUR_DESK_USER>"
+  password: "<YOUR_DESK_PASSWORD>"

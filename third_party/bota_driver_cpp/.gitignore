@@ -1,0 +1,7 @@
+# Parent .gitignore filters lib/ and *.so globally; re-include vendor
+# prebuilt binaries that fr3-stack's CMake links against (top-level
+# CMakeLists.txt, BOTA_DRIVER_ROOT).
+!linux/bota_driver_cpp_linux_aarch64/lib/
+!linux/bota_driver_cpp_linux_aarch64/lib/*
+!linux/bota_driver_cpp_linux_x86_64/lib/
+!linux/bota_driver_cpp_linux_x86_64/lib/*

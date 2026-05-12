@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Build & serve the archived/full docs set — same theme as ./scripts/docs, but
+# covers every page in docs/docs_backup/ (the pre-curation set). Driven by
+# mkdocs-backup.yml; output goes to site-backup/ so it doesn't clobber the
+# main site/ build.
+#
+# usage:
+#   ./scripts/docs-backup                  # build if site-backup/ missing, then serve
+#   ./scripts/docs-backup --rebuild        # force `mkdocs build -f mkdocs-backup.yml`
+#   ./scripts/docs-backup --port 9001      # bind port 9001 (default 8001)
+#   DOCS_BACKUP_PORT=9001 ./scripts/docs-backup
+#
+# Default port is 8001 (not 8000) so it can run alongside ./scripts/docs.
+set -euo pipefail
+
+cd "$(dirname "$(readlink -f "$0")")/.."
+
+CONFIG="mkdocs-backup.yml"
+SITE_DIR="site-backup"
+PORT="${DOCS_BACKUP_PORT:-8001}"
+REBUILD=0
+while (( $# > 0 )); do
+  case "$1" in
+    --rebuild)   REBUILD=1; shift ;;
+    --port)      PORT="$2"; shift 2 ;;
+    --port=*)    PORT="${1#--port=}"; shift ;;
+    -h|--help)   sed -n '2,13p' "$0" | sed 's/^# \?//'; exit 0 ;;
+    *)           echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+log() { printf '[docs-backup] %s\n' "$*" >&2; }
+
+if [[ ! -f "$SITE_DIR/index.html" || $REBUILD -eq 1 ]]; then
+  command -v mkdocs >/dev/null || {
+    log "error: mkdocs not installed. install with:"
+    log "       pip install --user mkdocs mkdocs-material"
+    exit 1
+  }
+  log "building $SITE_DIR/ from $CONFIG ..."
+  if ! mkdocs build -f "$CONFIG" 2>/tmp/fr3-docs-backup-build.err; then
+    cat /tmp/fr3-docs-backup-build.err >&2
+    if grep -qiE "mkdocs[_-]material|theme.*material" /tmp/fr3-docs-backup-build.err; then
+      log "missing mkdocs-material theme. install with:"
+      log "       pip install --user mkdocs-material"
+    fi
+    rm -f /tmp/fr3-docs-backup-build.err
+    exit 1
+  fi
+  rm -f /tmp/fr3-docs-backup-build.err
+  log "build done."
+else
+  log "$SITE_DIR/ already built — serving as-is (use --rebuild to refresh)"
+fi
+
+log "serving on:"
+log "  http://192.168.1.8:$PORT/   (default)"
+log "  http://127.0.0.1:$PORT/     (local)"
+hostname -I 2>/dev/null | tr ' ' '\n' | sed '/^$/d' | while read -r ip; do
+  [[ "$ip" == "192.168.1.8" ]] && continue
+  log "  http://$ip:$PORT/"
+done
+log "Ctrl+C to stop."
+
+exec python3 -m http.server "$PORT" --bind 0.0.0.0 --directory "$SITE_DIR"

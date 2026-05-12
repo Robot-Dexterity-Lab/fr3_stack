@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fr3-stack"
+version = "0.1.0"
+description = "Low-latency, ROS-free Python + C++ SDK for Franka Research 3 (force control + dexterous manipulation)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pyzmq>=25",
+    "pycapnp>=2.0",
+    "pyyaml>=6.0",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+fr3-ft-calibrate         = "fr3_stack.sensors.bota.ft_calibration:main"
+fr3-ft-calibrate-record  = "fr3_stack.sensors.bota.ft_calibration_record:main"
+fr3-ft-calibrate-auto    = "fr3_stack.sensors.bota.ft_calibration_auto:main"
+fr3-ft-publish           = "fr3_stack.sensors.bota.ft_compensated_publisher:main"
+fr3-ft-plot              = "fr3_stack.sensors.bota.plot:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fr3_stack"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"proto/fr3.capnp" = "fr3_stack/fr3.capnp"

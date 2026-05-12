@@ -1,0 +1,99 @@
+site_name: fr3-stack
+site_description: Franka Research 3 control stack — NUC daemon + Python client.
+site_url: https://kingchou007.github.io/fr3_stack/
+repo_url: https://github.com/kingchou007/fr3_stack
+repo_name: kingchou007/fr3_stack
+edit_uri: edit/main/docs/docs_backup/
+docs_dir: docs/docs_backup
+site_dir: site-backup
+use_directory_urls: false
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Quick start: quickstart.md
+  - Controllers: controllers.md
+  - Hybrid Python API: hybrid_python_api.md
+  - Wire protocol: wire.md
+  - FT compensation: ft_compensation.md
+  - Tests: tests.md
+  - Design: design.md
+  - Architecture: architecture.md
+  - Runbooks:
+    - Hold-mode physical test: hold_mode_runbook.md
+    - Hybrid example test layers: testing_hybrid_force_example.md
+  - Experiments:
+    - Template: experiments/_template.md
+    - Idle: experiments/idle.md
+    - Cartesian impedance: experiments/cartesian_impedance.md
+    - Joint impedance: experiments/joint_impedance.md
+    - Admittance: experiments/admittance.md
+    - Hybrid: experiments/hybrid.md
+    - Cart-test run list: experiments/test_cart.md
+  - Dev notes:
+    - Controller review (P0/P1/P2): controller_review.md
+    - Controller TODO: controller_todo.md
+    - CRISP comparison: crisp_comparison.md
+    - Upstream comparison (5-way): upstream_comparison.md
+    - Streaming chatter post-mortem: streaming_chatter_postmortem.md
+    - FT calibration post-mortem (2026-05-10): postmortems/ft_calibration_2026-05-10.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - def_list
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.arithmatex:
+      generic: true
+
+extra:
+  generator: false
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

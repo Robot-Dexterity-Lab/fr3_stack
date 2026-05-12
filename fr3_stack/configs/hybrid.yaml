@@ -1,0 +1,117 @@
+# Hybrid force-position controller defaults.
+#
+# Layered (yifan-hou HFVC inside, cartesian impedance outside):
+#   inner: HFVC drifts inner_SE3. Force-controlled axes get spring +
+#          force-PID + damping; velocity-controlled axes get rigid
+#          tracking from pose error.
+#   outer: J^T·(K·(inner − actual) − D·(J·dq)) tracks inner_SE3 to τ.
+#
+# n_af=0 collapses to pure admittance (CRISP convention).
+# n_af=6 is pure force control on all axes.
+#
+# Sign convention: target_wrench is the wrench the robot should APPLY
+# to the environment, expressed in Tr-space (first n_af entries are the
+# active force axes). PID error = target_wrench + F_ext_world.
+#
+# NB: NEVER set target_wrench non-zero on the cartesian_impedance
+# controller in parallel — the hybrid controller already drives the
+# inner FT-PID loop; J^T·F at the outer layer would double-count.
+
+# --- Force/velocity decomposition ---
+n_af: 0                          # 0..6, number of force-controlled axes
+Tr: identity                     # 6×6 axis transform; "identity" or row-major 36-list
+
+# Force command in Tr-space [fx, fy, fz, tx, ty, tz].
+# Only the first n_af entries matter; the rest are ignored.
+target_wrench: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# --- Inner admittance dynamics (virtual M-K-D, base frame) ---
+# Values follow pixi_franka_ros2/config/controllers.yaml (cartesian_hybrid_controller)
+# verbatim. Heavier virtual M (5 vs prior 1) drops inner ωₙ from √100=10 rad/s
+# (≈1.6 Hz) to √40=6.3 rad/s (≈1.0 Hz), so the inner target stops "flinging" the
+# outer impedance into ~3 Hz ringing on release.
+admittance:
+  M: [  5.0,   5.0,   5.0,   0.5,   0.5,   0.5]
+  K: [200.0, 200.0, 200.0, 10.0, 10.0, 10.0]
+  D: [ 50.0,  50.0,  50.0,   5.0,   5.0,   5.0]
+
+# --- Force-tracking PID (scalar per trans/rot block, like CRISP & yifan-hou) ---
+force_pid:
+  P_trans: 0.0
+  I_trans: 0.0
+  D_trans: 0.0
+  P_rot:   0.0
+  I_rot:   0.0
+  D_rot:   0.0
+  # Anti-windup integral clamp [fx, fy, fz, tx, ty, tz].
+  I_limit: [10.0, 10.0, 10.0, 5.0, 5.0, 5.0]
+
+# Per-axis stiction dead-band in Tr-space (zeros out small force errors so
+# FT noise doesn't drive integral drift). Use stiction OR PID, not both.
+stiction: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# Spring force / torque magnitude clip. Bounds contact force on unintended
+# pose drift — critical safety limit on force-controlled axes.
+# 0 disables the corresponding clip.
+max_spring_force:  50.0    # [N]
+max_spring_torque: 10.0    # [Nm]
+
+# --- Outer impedance loop: tracks inner_SE3 → τ ---
+# D = 2·√K (pixi's auto-D convention when `d_pos_x: -1`). With the inner
+# admittance now matching pixi (M=5, K=200), the inner target moves at
+# ωₙ_inner ≈ 1 Hz — slow enough that ζ_outer ≈ 0.45 at m_cart≈5 kg no
+# longer rings on release. Rate-saturation + output τ EMA + error clip
+# (added in cpp) provide the rest of the headroom.
+impedance:
+  K: [3000.0, 3000.0, 3000.0,  50.0,  50.0,  50.0]
+  D: [109.5, 109.5, 109.5, 14.14, 14.14, 14.14]
+
+# Nullspace anchor (all-zero = snapshot at activation).
+# Pixi nullspace: stiffness=10, damping=9 (slightly over-damped, not 2·√K),
+# max_tau=15. Much softer than our previous K_null=100, gives the elbow more
+# room to move under external disturbance without fighting the operator.
+q_null: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+K_null: 10.0
+D_null: 9.0
+max_tau_null: 15.0
+
+# LERP/SLERP bridge from the client rate up to the 1 kHz daemon tick — same
+# path the cartesian_impedance controller uses. Default on: turning it off
+# is rare (debug, or you're already streaming a dense 1 kHz target).
+linear_interp: true
+
+# EMA on target pose. 0.1 matches pixi `filter.target_pose` default —
+# strong smoothing (~10ms τ at 1 kHz) so jumpy user pose commands don't
+# kick the inner admittance.
+filter_alpha: 0.1
+
+# F_ext EMA. 1.0 = pass-through (matches pixi/yifan-hou; pixi has no
+# wrench filter on the hybrid path).
+wrench_filter_alpha: 1.0
+
+# Per-axis soft deadband on F_ext (after EMA, before admittance integrator).
+# All-zero = disabled (default). Suppresses DC drift from FT calibration
+# residuals before it leaks into M⁻¹·F_ext or the force-PID. Use 2-3× the
+# per-axis residual reported by fr3-ft-calibrate (typically 20-50 mN
+# translation, 2-5 mNm rotation). Independent of `stiction` (which acts on
+# the PID tracking error in Tr-space).
+wrench_deadband: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# EMA on raw dq before the outer D-term. 0.5 matches pixi `filter.dq`.
+dq_filter_alpha: 0.5
+
+# EMA on final commanded τ. 0.5 matches pixi `filter.output_torque`.
+# Combined with rate-saturation below, this is the main reason pixi
+# never high-frequency-chatters even when ζ_outer ≈ 0.45.
+output_torque_filter_alpha: 0.5
+
+# Per-tick |Δτ| cap (Nm). Pixi default 0.5 → 500 Nm/s at 1 kHz, which
+# bounds any impulse from K·e spikes. 0 = disabled.
+max_delta_tau: 0.5
+
+# Per-axis pose-error clip applied before K·e in the outer loop. Matches
+# pixi `task.error_clip` defaults (0.1m / 0.5 rad). Caps |K·e| at
+# K·error_clip so a far-flung inner_SE3_ can't slam the joints.
+error_clip: [0.1, 0.1, 0.1, 0.5, 0.5, 0.5]
+
+use_friction: true
