@@ -1,0 +1,8 @@
+Original logo: https://kingchou007.github.io/images/fr3_stack.jpg
+Original file retained as fr3-stack.jpg.
+Transparent derivative: fr3-stack-transparent.png, RGBA PNG.
+Created with the built-in imagegen background-extraction tool.
+Prompt: Remove only the near-white background; preserve the robot, layered
+stack, arrows, rings, lettering, colors, and opaque white/silver surfaces.
+The dark navy lettering is intended for light backgrounds. On dark surfaces,
+place the logo on a light brand surface to preserve contrast.

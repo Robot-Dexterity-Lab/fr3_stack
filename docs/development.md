@@ -39,10 +39,8 @@ and presentation; `site/` is generated output and must not be maintained by hand
 The Deploy documentation workflow builds strictly, uploads a Pages artifact,
 and deploys it with GitHub's Pages action.
 
-The initial preview deploys from `feat/dual-arm-coordinator`. After merge,
-documentation changes on `main` also deploy automatically. This is one website;
-a deployment replaces its previous contents. The feature-branch trigger can be
-removed when the preview branch is retired.
+Documentation changes on `main` deploy automatically. The public website uses
+the main branch; feature branches do not overwrite it.
 
 Real evaluation remains pending. Record measured results in the docs only after
 they have been obtained, with hardware versions and test conditions.

@@ -1,35 +1,46 @@
-# fr3-stack
+---
+hide:
+  - navigation
+  - toc
+---
 
-Low-latency, ROS-free control stack for the Franka Research 3.
+<div class="project-home">
+  <header class="project-intro">
+    <div class="project-heading">
+      <img class="project-logo" src="assets/fr3-stack.jpg" alt="" width="128" height="128">
+      <div class="project-brand">
+        <p class="project-byline">DexLab</p>
+        <h1>fr3-stack</h1>
+        <p class="project-description">Control suite for the <br>Franka Research 3.</p>
+      </div>
+    </div>
+    <div class="project-summary">
+      <p>A Python client on your workstation. A real-time C++ controller on the NUC. Connected through libfranka, without ROS.</p>
+      <p>Cartesian impedance, hybrid force/position control, and software-level dual-arm coordination.</p>
+      <div class="project-actions"><a class="project-primary" href="quickstart.html">Get started <span aria-hidden="true">→</span></a><a href="https://github.com/Robot-Dexterity-Lab/fr3_stack">GitHub <span aria-hidden="true">↗</span></a></div>
+    </div>
+  </header>
+  <div class="project-resources">
+    <section class="project-start">
+      <h2>Start with a connection</h2>
+      <p>Set up the NUC daemon and install the Python client using the <a href="quickstart.html">installation guide</a>. Then read state from your workstation:</p>
+      <div class="project-code"><span class="code-label">Python · Read robot state</span><pre><code><span class="code-keyword">from</span> fr3_stack <span class="code-keyword">import</span> Robot
 
-- **C++ daemon** runs on the robot's NUC, owns the libfranka connection, and ticks the chosen controller at 1 kHz.
-- **Python client** (`fr3_stack`) on your workstation streams commands and reads state.
-
-The two processes talk over ZMQ + Cap'n Proto. Both sockets use `CONFLATE=1` (latest-wins), so a slow consumer never backs up.
-
-## Dual-arm development preview
-
-The [software coordinator](dual-arm.md) is implemented on the
-[feature branch](https://github.com/Robot-Dexterity-Lab/fr3_stack/tree/feat/dual-arm-coordinator).
-**Real-robot evaluation is pending.** NUC-side synchronized execution remains
-[planned work](dual-arm-coordination-plan.md). See the
-[development guide](development.md) for module boundaries and verification.
-
-## Controllers
-
-| Name                  | Behavior                                                              |
-| --------------------- | --------------------------------------------------------------------- |
-| `idle`                | Gravity comp + per-joint damping. Hand-guidable; does **not** hold pose. |
-| `cartesian_impedance` | 6-DoF spring/damper at the EE (Hogan 1985, $J^{\top}$-projected).     |
-| `hybrid`              | Per-axis force PID on `n_af` axes + position elsewhere.               |
-
-Plus `MoveTo` — one-shot min-jerk setup moves that ride on `cartesian_impedance`.
-
-`hybrid` requires a calibrated F/T sensor (Bota EtherCAT supported).
-
-## Where to start
-
-- First time → [Quick start](quickstart.md)
-- Picking a controller → [Controllers](controllers.md)
-- Editing the schema → [Wire protocol](wire.md)
-- How the pieces fit → [Architecture](architecture.md)
+<span class="code-keyword">with</span> Robot(<span class="code-string">"192.168.1.8"</span>) <span class="code-keyword">as</span> robot:
+    state = robot.wait_for_state(timeout=5.0)
+    print(state.pos, state.quat_xyzw)</code></pre></div>
+      <p class="project-note">Connect to the NUC's IP address. This example reads state only.</p>
+    </section>
+    <section class="project-guides">
+      <h2>Explore the stack</h2>
+      <a class="guide-row" href="single-arm.html"><span><strong>Single-arm control</strong><small>State, poses, profiles, and Python interfaces</small></span><span aria-hidden="true">→</span></a>
+      <a class="guide-row" href="controllers.html"><span><strong>Controllers</strong><small>Impedance, admittance, and force/position control</small></span><span aria-hidden="true">→</span></a>
+      <a class="guide-row" href="dual-arm.html"><span><strong>Dual-arm coordination</strong><small>Two NUCs, paired targets, and fault handling</small></span><span aria-hidden="true">→</span></a>
+      <a class="guide-row" href="troubleshooting.html"><span><strong>Troubleshooting</strong><small>Connections, F/T data, and build issues</small></span><span aria-hidden="true">→</span></a>
+    </section>
+  </div>
+  <footer class="project-bottom">
+    <p><strong>Development status</strong> — Dual-arm coordination provides paired dispatch and fault handling. NUC execution synchronization and real-robot evaluation are pending. <a href="dual-arm-coordination-plan.html">Roadmap →</a></p>
+    <p><a href="development.html">Contributing</a> · <a href="https://github.com/Robot-Dexterity-Lab/fr3_stack/blob/main/AGENTS.md">Agent guide</a> · <a href="https://github.com/Robot-Dexterity-Lab/fr3_stack/issues">Report an issue</a></p>
+  </footer>
+</div>

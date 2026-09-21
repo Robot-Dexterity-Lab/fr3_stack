@@ -1,7 +1,7 @@
 name: Deploy documentation
 on:
   push:
-    branches: [main, feat/dual-arm-coordinator]
+    branches: [main]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'

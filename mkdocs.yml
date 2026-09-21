@@ -1,6 +1,6 @@
-site_name: fr3-stack
+site_name: FR3-STACK
 site_url: https://robot-dexterity-lab.github.io/fr3_stack/
-site_description: Franka Research 3 control stack — NUC daemon + Python client.
+site_description: Python and C++ tools for Franka Research 3 control, with Cartesian impedance, hybrid force/position control, and dual-arm coordination.
 repo_url: https://github.com/Robot-Dexterity-Lab/fr3_stack
 repo_name: Robot-Dexterity-Lab/fr3_stack
 edit_uri: edit/main/docs/
@@ -14,21 +14,13 @@ exclude_docs: |
 theme:
   name: material
   language: en
+  logo: assets/fr3-stack.jpg
+  favicon: assets/fr3-stack-transparent.png
+  font: false
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: black
-      accent: cyan
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: black
-      accent: cyan
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
+    scheme: default
+    primary: custom
+    accent: custom
   features:
     - navigation.tabs
     - navigation.tabs.sticky
@@ -44,14 +36,23 @@ theme:
     repo: fontawesome/brands/github
 
 nav:
-  - Home: index.md
-  - Quick start: quickstart.md
-  - Controllers: controllers.md
-  - Wire protocol: wire.md
-  - Architecture: architecture.md
-  - Dual-arm coordinator: dual-arm.md
-  - Dual-arm plan: dual-arm-coordination-plan.md
-  - Development: development.md
+  - Overview: index.md
+  - Get started:
+      - Installation & connection: quickstart.md
+      - Troubleshooting: troubleshooting.md
+  - Control guides:
+      - Single arm: single-arm.md
+      - Controllers: controllers.md
+      - Dual arm: dual-arm.md
+  - Reference:
+      - Architecture: architecture.md
+      - Wire protocol: wire.md
+  - Development:
+      - Contributing & verification: development.md
+      - Coordination roadmap: dual-arm-coordination-plan.md
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
   - admonition
@@ -80,5 +81,4 @@ extra:
 
 # Math via MathJax (loaded only when arithmatex is used).
 extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

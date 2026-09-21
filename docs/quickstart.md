@@ -1,4 +1,7 @@
-# Quick start
+# Installation & connection
+
+Run the C++ daemon on the NUC connected to your FR3, and install the Python
+client on your workstation. Use the NUC address when connecting from Python.
 
 ## NUC side
 
@@ -18,7 +21,7 @@ Ships as a Docker image (libfranka 0.17.0, pinocchio 3.x, Eigen 3.4, gcc 13).
 ./fr3-stack down
 ```
 
-Mode is `idle`, `cart`, or `hybrid`. With a non-idle initial controller, the daemon anchors the spring at the arm's startup pose — the first RT tick produces zero net force, no jump.
+Modes are `idle`, `cart`, `joint`, `adm`, and `hybrid`. For a non-idle initial controller, the daemon anchors its target to the live robot state at activation.
 
 ### Daemon flags
 
@@ -40,16 +43,15 @@ FR3_ROBOT_IP=192.168.1.11 \
 FR3_INITIAL_CONTROLLER=cartesian_impedance \
 FR3_FT_SENSOR_KIND=bota \
 FR3_FT_SENSOR_CONFIG=/opt/bota/driver_config/bota_binary.json \
-./fr3-stack up -d
+./fr3-stack up cart --ft
 ```
 
 ### F/T sensor (optional)
 
-The Bota EtherCAT driver is a git submodule:
+The Bota driver is bundled under `third_party/`. Select the FT backend on the NUC:
 
 ```bash
-git submodule update --init --recursive
-./fr3-stack up hybrid -d --ft
+./fr3-stack up hybrid --ft
 ```
 
 When publishing, `State.wrench_ft` is a length-6 vector; otherwise `None`. `send_hybrid` refuses to start without one unless `require_ft_sensor=False`.
@@ -76,8 +78,8 @@ Template (`examples/fr3.example.yaml`):
 nuc_host:  192.168.1.8       # where fr3-stack listens
 robot_ip:  192.168.1.11      # FR3's own IP
 desk:
-  user:     dexlab
-  password: thedexlab
+  user:     YOUR_DESK_USER
+  password: YOUR_DESK_PASSWORD
 ```
 
 Env vars override file values: `FR3_NUC_HOST`, `FR3_ROBOT_IP`, `FR3_DESK_USER`, `FR3_DESK_PASS`.
@@ -142,7 +144,7 @@ robot.set_profile("hybrid", "polish")        # swap at runtime
 If you have a sensor mounted past the wrist, run payload identification before using hybrid:
 
 ```bash
-./fr3-stack up hybrid -d --ft
+./fr3-stack up hybrid --ft
 
 # manual: hand-guide to ≥6 static poses with varied EE tilt
 fr3-ft-calibrate 192.168.1.8
@@ -156,7 +158,7 @@ The solver writes `fr3_stack/sensors/bota/config/ft_calibration.yaml`, which doc
 
 ```bash
 ./fr3-stack down
-./fr3-stack up hybrid -d --ft
+./fr3-stack up hybrid --ft
 ```
 
 After that, `state.wrench_ft` is compensated, `state.wrench_ft_raw` carries the raw stream, and `state.ft_compensated == True`.
