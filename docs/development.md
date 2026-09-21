@@ -26,7 +26,7 @@ python3 -m pip install -e '.[dev]'
 python3 -m pytest tests/test_dual_arm.py
 python3 -m pytest
 python3 -m pip install -r requirements-docs.txt
-python3 -m mkdocs build --strict
+python3 -m mkdocs build --strict -f docs/config/mkdocs.yml
 ```
 
 Tests use mocks and local FakeDaemons; they are not real-robot evaluation.
@@ -34,7 +34,7 @@ Do not run hardware motion as an ordinary test step.
 
 ## Documentation publishing
 
-`docs/` is the source of the GitHub Pages website. `mkdocs.yml` defines navigation
+`docs/` is the source of the GitHub Pages website. `docs/config/mkdocs.yml` defines navigation
 and presentation; `site/` is generated output and must not be maintained by hand.
 The Deploy documentation workflow builds strictly, uploads a Pages artifact,
 and deploys it with GitHub's Pages action.

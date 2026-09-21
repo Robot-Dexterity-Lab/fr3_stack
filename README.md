@@ -5,8 +5,8 @@ C++ daemon on the NUC (libfranka, 1 kHz); Python client over ZMQ + Cap'n Proto.
 
 Build the docs locally:
 ```bash
-pip install mkdocs-material
-mkdocs serve
+python3 -m pip install -r requirements-docs.txt
+python3 -m mkdocs serve -f docs/config/mkdocs.yml
 ```
 📚 [Docs]( http://127.0.0.1:8000) · [Quickstart](docs/quickstart.md)
 

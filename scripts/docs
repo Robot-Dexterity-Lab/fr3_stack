@@ -5,7 +5,7 @@
 #
 # usage:
 #   ./scripts/docs                  # build if site/ missing, then serve
-#   ./scripts/docs --rebuild        # force `mkdocs build` first
+#   ./scripts/docs --rebuild        # force `mkdocs build -f docs/config/mkdocs.yml` first
 #   ./scripts/docs --port 9000      # bind port 9000 (default 8000)
 #   DOCS_PORT=9000 ./scripts/docs   # same, via env
 #
@@ -36,7 +36,7 @@ if [[ ! -f site/index.html || $REBUILD -eq 1 ]]; then
     exit 1
   }
   log "building site/ ..."
-  if ! mkdocs build 2>/tmp/fr3-docs-build.err; then
+  if ! mkdocs build -f docs/config/mkdocs.yml 2>/tmp/fr3-docs-build.err; then
     cat /tmp/fr3-docs-build.err >&2
     if grep -qiE "mkdocs[_-]material|theme.*material" /tmp/fr3-docs-build.err; then
       log "missing mkdocs-material theme. install with:"

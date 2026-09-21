@@ -4,11 +4,12 @@ site_description: Python and C++ tools for Franka Research 3 control, with Carte
 repo_url: https://github.com/Robot-Dexterity-Lab/fr3_stack
 repo_name: Robot-Dexterity-Lab/fr3_stack
 edit_uri: edit/main/docs/
-docs_dir: docs
-site_dir: site
+docs_dir: ..
+site_dir: ../../site
 use_directory_urls: false
 
 exclude_docs: |
+  config/
   docs_backup/
 
 theme:

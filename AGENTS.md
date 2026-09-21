@@ -36,7 +36,7 @@ Trace feedback through daemon state publication -> `Robot._sub_loop` -> `State`.
 | Dual-arm validation, timing, faults | `fr3_stack/dual_arm.py`, `dual_arm_robot.py`, `docs/dual-arm.md` | `tests/test_dual_arm.py` |
 | F/T readings or payload compensation | `include/fr3_stack/sensors/wrench_frame.hpp`, `src/sensors/`, `fr3_stack/sensors/bota/` | Inspect frame/calibration math; hardware behavior needs separate evaluation |
 | Build, launch, or dependency failure | `CMakeLists.txt`, `Dockerfile`, `docker-compose.yml`, `fr3-stack` | Configure/build; `bash -n fr3-stack` |
-| Website content/navigation | `docs/`, `mkdocs.yml`, `.github/workflows/docs.yml` | Strict MkDocs build |
+| Website content/navigation | `docs/`, `docs/config/mkdocs.yml`, `.github/workflows/docs.yml` | Strict MkDocs build |
 
 ## Follow the existing behavior when making a change
 
@@ -108,7 +108,7 @@ Documentation:
 
 ```bash
 python3 -m pip install -r requirements-docs.txt
-python3 -m mkdocs build --strict
+python3 -m mkdocs build --strict -f docs/config/mkdocs.yml
 ```
 
 `docs/` is the GitHub Pages source; `site/` is generated output. Do not create a
