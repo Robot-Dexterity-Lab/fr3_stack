@@ -107,7 +107,7 @@ library; use `Dockerfile` to identify the intended dependency versions.
 Documentation:
 
 ```bash
-python3 -m pip install -r requirements-docs.txt
+python3 -m pip install -r docs/requirements.txt
 python3 -m mkdocs build --strict -f docs/config/mkdocs.yml
 ```
 

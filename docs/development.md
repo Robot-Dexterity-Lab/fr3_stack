@@ -25,7 +25,7 @@ should explain behavior, tests, remaining limitations, and handoff tasks.
 python3 -m pip install -e '.[dev]'
 python3 -m pytest tests/test_dual_arm.py
 python3 -m pytest
-python3 -m pip install -r requirements-docs.txt
+python3 -m pip install -r docs/requirements.txt
 python3 -m mkdocs build --strict -f docs/config/mkdocs.yml
 ```
 

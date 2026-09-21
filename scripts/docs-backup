@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Build & serve the archived/full docs set — same theme as ./scripts/docs, but
 # covers every page in docs/docs_backup/ (the pre-curation set). Driven by
-# mkdocs-backup.yml; output goes to site-backup/ so it doesn't clobber the
+# docs/config/mkdocs-backup.yml; output goes to site-backup/ so it doesn't clobber the
 # main site/ build.
 #
 # usage:
 #   ./scripts/docs-backup                  # build if site-backup/ missing, then serve
-#   ./scripts/docs-backup --rebuild        # force `mkdocs build -f mkdocs-backup.yml`
+#   ./scripts/docs-backup --rebuild        # force `mkdocs build -f docs/config/mkdocs-backup.yml`
 #   ./scripts/docs-backup --port 9001      # bind port 9001 (default 8001)
 #   DOCS_BACKUP_PORT=9001 ./scripts/docs-backup
 #
@@ -15,7 +15,7 @@ set -euo pipefail
 
 cd "$(dirname "$(readlink -f "$0")")/.."
 
-CONFIG="mkdocs-backup.yml"
+CONFIG="docs/config/mkdocs-backup.yml"
 SITE_DIR="site-backup"
 PORT="${DOCS_BACKUP_PORT:-8001}"
 REBUILD=0

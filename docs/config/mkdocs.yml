@@ -9,6 +9,7 @@ site_dir: ../../site
 use_directory_urls: false
 
 exclude_docs: |
+  requirements.txt
   config/
   docs_backup/
 

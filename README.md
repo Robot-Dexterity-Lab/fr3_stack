@@ -5,7 +5,7 @@ C++ daemon on the NUC (libfranka, 1 kHz); Python client over ZMQ + Cap'n Proto.
 
 Build the docs locally:
 ```bash
-python3 -m pip install -r requirements-docs.txt
+python3 -m pip install -r docs/requirements.txt
 python3 -m mkdocs serve -f docs/config/mkdocs.yml
 ```
 📚 [Docs](https://robot-dexterity-lab.github.io/fr3_stack/) · [Quickstart](https://robot-dexterity-lab.github.io/fr3_stack/quickstart.html)

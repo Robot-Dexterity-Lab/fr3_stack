@@ -3,8 +3,8 @@ site_description: Franka Research 3 control stack — NUC daemon + Python client
 repo_url: https://github.com/Robot-Dexterity-Lab/fr3_stack
 repo_name: Robot-Dexterity-Lab/fr3_stack
 edit_uri: edit/main/docs/docs_backup/
-docs_dir: docs/docs_backup
-site_dir: site-backup
+docs_dir: ../docs_backup
+site_dir: ../../site-backup
 use_directory_urls: false
 
 theme:
