@@ -1,76 +1,104 @@
-# fr3-stack
+# FR3-STACK
 
-Low-latency, ROS-free control stack for the Franka Research 3.
-C++ daemon on the NUC (libfranka, 1 kHz); Python client over ZMQ + Cap'n Proto.
+Control suite for the Franka Research 3 from DexLab. A ROS-free Python client on
+your workstation connects to a real-time C++ daemon on each robot's NUC through
+ZMQ. The daemon runs the controller through libfranka at 1 kHz.
 
-Build the docs locally:
+[Documentation](https://robot-dexterity-lab.github.io/fr3_stack/) ·
+[Quickstart](https://robot-dexterity-lab.github.io/fr3_stack/quickstart.html) ·
+[v0.1.0 preview](https://github.com/Robot-Dexterity-Lab/fr3_stack/releases/tag/v0.1.0)
+
+## Features
+
+- Cartesian impedance, hybrid force/position control, admittance, and joint impedance.
+- Pose-oriented operations with `Arm`, direct commands with `Robot`, and policy loops with `RobotAgent`.
+- Bota F/T sensor integration and calibration tools.
+- Experimental dual-arm coordination with one NUC per robot, paired target validation, and fault handling.
+
+## Get started
+
+Clone the repository on the NUC and workstation. The commands below follow the
+current `main` layout.
+
 ```bash
-python3 -m pip install -r docs/requirements.txt
-python3 -m mkdocs serve -f docs/config/mkdocs.yml
+git clone https://github.com/Robot-Dexterity-Lab/fr3_stack.git
+cd fr3_stack
 ```
-📚 [Docs](https://robot-dexterity-lab.github.io/fr3_stack/) · [Quickstart](https://robot-dexterity-lab.github.io/fr3_stack/quickstart.html)
 
-## Install
+On the **NUC**, complete the real-time kernel, network, and robot setup in the
+[installation guide](https://robot-dexterity-lab.github.io/fr3_stack/quickstart.html),
+then build and start the daemon. `up cart` enables Cartesian impedance at the
+robot's current pose.
 
 ```bash
-# NUC Side
 ./fr3-stack build
-./fr3-stack up
-
-# Workstation
-pip install -e .
+FR3_ROBOT_IP=192.168.1.11 ./fr3-stack up cart
+# Stop the daemon:
+./fr3-stack down
 ```
 
-## Hello world
+On the **workstation**, install the Python client with Python 3.10 or newer:
+
+```bash
+python3 -m pip install -e .
+```
+
+Connect to the **NUC's address**, not the robot's address. This example only reads state:
 
 ```python
-import time
 from fr3_stack import Robot
 
-pos, quat = [0.5, 0.0, 0.4], [0, 0, 0, 1]
-
-with Robot("nuc.local") as robot:
-    # 1. large distance movement
-    robot.send_move_to(pos, quat, run_time=2.0)
-    time.sleep(2.0)
-    
-    # 2. cartesian control for policy
-    robot.send_cartesian_impedance(
-        target_pos       = pos,
-        target_quat_xyzw = quat,
-    )
-
-    # 3. hybrid force-position
-    robot.send_hybrid_force_position(
-        target_pos       = pos,
-        target_quat_xyzw = quat,
-        target_force     = [0, 0, -5, 0, 0, 0],
-        S                = [1, 1, 0, 1, 1, 1],   # Z = force, rest = position
-    )
+with Robot("192.168.1.8") as robot:
+    state = robot.wait_for_state(timeout=5.0)
+    print(state.pos)        # meters, robot base frame
+    print(state.quat_xyzw)  # x, y, z, w
 ```
 
-Use `RobotAgent` for policy loops (`reset - observe - step`), or `Robot` for
-admittance / hybrid / joint impedance.
+See [single-arm control](https://robot-dexterity-lab.github.io/fr3_stack/single-arm.html)
+for sending targets and [controllers](https://robot-dexterity-lab.github.io/fr3_stack/controllers.html)
+for modes, gains, and force conventions. Closing the Python client does not stop
+the daemon or clear its last command.
 
-## Controllers
+## Repository layout
 
-| Controller | What it does |
+| Path | Contents |
 | --- | --- |
-| `idle` | hand-guidable: gravity comp + inertia-aware per-joint damping + optional Coulomb-friction comp |
-| `cartesian_impedance` | spring/damper at the EE in base frame ($J^{\top}$-projected) |
-| `hybrid` | per-axis force PID on `n_af` axes + position elsewhere |
+| `fr3_stack/` | Python clients, coordination, and sensor tools |
+| `src/`, `include/` | C++ daemon and controllers |
+| `proto/` | Shared Cap'n Proto schema |
+| `containers/` | Dockerfile, Compose configuration, and container instructions |
+| `docs/` | Website content, configuration, and documentation dependencies |
+| `examples/`, `tests/` | Usage examples and automated checks |
+| `AGENTS.md` | Codebase guide and verification paths for contributors and agents |
 
-Plus `MoveTo` for min-jerk setup moves.
+Use `./fr3-stack` from the repository root; it selects `containers/compose.yml`
+and preserves the root build context and mount paths. See
+[container instructions](containers/README.md) for direct Docker commands.
 
-## Dual-arm coordination
+## Development
 
-Use the [dual-arm software coordinator](docs/dual-arm.md) for paired targets
-and fault handling over two independent single-arm clients. It is experimental;
-real-robot evaluation and synchronized NUC execution remain pending.
+```bash
+python3 -m pip install -e '.[dev]'
+python3 -m pytest
+
+python3 -m pip install -r docs/requirements.txt
+python3 -m mkdocs serve -f docs/config/mkdocs.yml
+# Check the website before publishing:
+python3 -m mkdocs build --strict -f docs/config/mkdocs.yml
+```
+
+Start with [AGENTS.md](AGENTS.md) for architecture and task-specific checks.
+The [development guide](https://robot-dexterity-lab.github.io/fr3_stack/development.html)
+covers collaboration and publishing. Python tests use fake daemons; they do not
+constitute real-robot evaluation.
 
 ## Status
 
-Pre-alpha. APIs will change. Single FR3 only.
+`v0.1.0` is the first public preview; APIs may change. Dual-arm coordination is
+experimental: real-robot evaluation is pending, and paired dispatch does not
+synchronize execution on the NUCs. See the
+[dual-arm guide](https://robot-dexterity-lab.github.io/fr3_stack/dual-arm.html)
+for behavior and limitations.
 
 ## License
 
