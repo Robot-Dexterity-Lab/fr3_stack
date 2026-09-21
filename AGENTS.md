@@ -35,7 +35,7 @@ Trace feedback through daemon state publication -> `Robot._sub_loop` -> `State`.
 | Torque, impedance, admittance, or hybrid math | `include/fr3_stack/controllers/`, `src/controllers/`, `include/fr3_stack/utils/` | `tests/cpp/test_controller_math.cpp` |
 | Dual-arm validation, timing, faults | `fr3_stack/dual_arm.py`, `dual_arm_robot.py`, `docs/dual-arm.md` | `tests/test_dual_arm.py` |
 | F/T readings or payload compensation | `include/fr3_stack/sensors/wrench_frame.hpp`, `src/sensors/`, `fr3_stack/sensors/bota/` | Inspect frame/calibration math; hardware behavior needs separate evaluation |
-| Build, launch, or dependency failure | `CMakeLists.txt`, `Dockerfile`, `docker-compose.yml`, `fr3-stack` | Configure/build; `bash -n fr3-stack` |
+| Build, launch, or dependency failure | `CMakeLists.txt`, `containers/Dockerfile`, `containers/compose.yml`, `fr3-stack` | Configure/build; `bash -n fr3-stack` |
 | Website content/navigation | `docs/`, `docs/config/mkdocs.yml`, `.github/workflows/docs.yml` | Strict MkDocs build |
 
 ## Follow the existing behavior when making a change
@@ -102,7 +102,7 @@ The current CMake configuration still calls `find_package(Franka REQUIRED)` even
 for mock tests. Provide installed dependency prefixes through `CMAKE_PREFIX_PATH`
 when necessary; the mock test executable itself uses `tests/cpp/franka_mock/`.
 The full daemon additionally needs cppzmq, Cap'n Proto, yaml-cpp, and the Bota
-library; use `Dockerfile` to identify the intended dependency versions.
+library; use `containers/Dockerfile` to identify the intended dependency versions.
 
 Documentation:
 

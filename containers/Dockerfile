@@ -1,6 +1,6 @@
 # Multi-stage build for fr3-stack. Build context is the project root.
 #
-# Build:  docker build -t fr3-stack:latest .
+# Build:  docker build -f containers/Dockerfile -t fr3-stack:latest .
 # Run:    docker run --rm --network host \
 #             --cap-add=SYS_NICE --ulimit rtprio=99 --ulimit memlock=-1 \
 #             fr3-stack:latest --robot 192.168.1.11
@@ -17,7 +17,7 @@
 # (the upstream Debian/Ubuntu repo for stack-of-tasks software).
 #
 # Override libfranka version to match your robot firmware:
-#   docker build --build-arg LIBFRANKA_VERSION=0.14.0 -t fr3-stack:latest .
+#   docker build -f containers/Dockerfile --build-arg LIBFRANKA_VERSION=0.14.0 -t fr3-stack:latest .
 
 # ---- Stage 1: build ---------------------------------------------------------
 
@@ -166,7 +166,7 @@ COPY --from=builder /opt/fr3-stack/bin/fr3-ft        /usr/local/bin/
 COPY --from=builder /opt/fr3-stack/bin/grav_comp_franka_style  /usr/local/bin/
 
 # Cartesian-impedance experiment harness — direct-libfranka, no ZMQ/capnp.
-# Run via the `cart-test` service in docker-compose.yml. Cannot run while
+# Run via the `cart-test` service in containers/compose.yml. Cannot run while
 # the fr3-stack daemon is up (both want the robot's FCI control connection).
 COPY --from=builder /opt/fr3-stack/bin/cartesian_test           /usr/local/bin/
 

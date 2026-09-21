@@ -51,7 +51,7 @@ std::optional<PayloadCalib> load_payload_calib(const std::string& path);
 //   2. $FR3_FT_CALIB_DIR/ft_calibration.yaml
 //   3. /opt/fr3-stack/calib/ft_calibration.yaml  (docker-compose mount target)
 //
-// docker-compose.yml bind-mounts the host's
+// containers/compose.yml bind-mounts the host's
 // `<repo>/fr3_stack/sensors/bota/config/` to /opt/fr3-stack/calib/, so the
 // daemon and the Python tooling agree on a single source of truth. Out-of-
 // Docker C++ runs should pass --ft-calib explicitly.

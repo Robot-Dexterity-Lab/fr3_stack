@@ -40,7 +40,7 @@ Resolve the cause before explicitly calling `arm()` again. See
 
 ## Build dependencies are missing
 
-Use `Dockerfile` as the dependency/version reference for the NUC build. Native
+Use `containers/Dockerfile` as the dependency/version reference for the NUC build. Native
 builds must expose installed dependency prefixes through `CMAKE_PREFIX_PATH`.
 The current CMake setup requires libfranka even when building controller mocks.
 The [agent guide](https://github.com/Robot-Dexterity-Lab/fr3_stack/blob/main/AGENTS.md)

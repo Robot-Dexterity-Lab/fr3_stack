@@ -1,11 +1,12 @@
 # Convenience wrapper over `docker run` with the right RT caps and host
-# networking. Run from the project root:
+# networking. Paths are relative to the project root (set by --project-directory).
+# Run from the project root:
 #
-#   docker compose up
+#   docker compose --project-directory . -f containers/compose.yml up
 #
 # Override the robot IP via env var:
 #
-#   FR3_ROBOT_IP=192.168.1.11 docker compose up
+#   FR3_ROBOT_IP=192.168.1.11 docker compose --project-directory . -f containers/compose.yml up
 #
 # RT settings: privileged + uncapped rttime + 8 GiB memlock so the
 # 1 kHz control loop never trips a kernel limit.
@@ -14,7 +15,7 @@ services:
   fr3-stack:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: containers/Dockerfile
       args:
         LIBFRANKA_VERSION: 0.17.0
     image: fr3-stack:latest
@@ -75,15 +76,15 @@ services:
 
   # Cartesian-impedance experiment harness — direct libfranka, no ZMQ/capnp.
   # Mutually exclusive with `fr3-stack`: stop the daemon first
-  # (`docker compose down`) before running this.
+  # (`docker compose --project-directory . -f containers/compose.yml down`) before running this.
   #
   #   mkdir -p csv  # CSV outputs land here on host
-  #   docker compose --profile test run --rm cart-test \
+  #   docker compose --project-directory . -f containers/compose.yml --profile test run --rm cart-test \
   #       ${FR3_ROBOT_IP:-192.168.1.11} \
   #       --mode osc --axis z --amp 0.05 --duration 30 --csv /csv/osc_z.csv
   #
   # Anything after the service name is passed verbatim as cartesian_test argv.
-  # `--profile test` keeps `docker compose up` from accidentally starting
+  # `--profile test` keeps `docker compose --project-directory . -f containers/compose.yml up` from accidentally starting
   # this alongside the daemon.
   cart-test:
     profiles: ["test"]
@@ -109,7 +110,7 @@ services:
 
   # Bota FT-sensor smoke test — no robot, no ZMQ, no capnp. Streams the raw
   # sensor-frame wrench as CSV to stdout; visible via `./fr3-stack ft logs`
-  # or `docker compose logs fr3-stack-ft`. Use this to verify EtherCAT/Bota
+  # or `docker compose --project-directory . -f containers/compose.yml logs fr3-stack-ft`. Use this to verify EtherCAT/Bota
   # wiring before bringing up the full daemon, or when the FR3 arm isn't
   # available.
   #
@@ -119,7 +120,7 @@ services:
   #   ./fr3-stack ft logs -f
   #   ./fr3-stack ft down
   #
-  # `--profile ft` keeps `docker compose up` from starting it alongside the
+  # `--profile ft` keeps `docker compose --project-directory . -f containers/compose.yml up` from starting it alongside the
   # daemon. Calibration (`fr3-ft-calibrate`) still needs the arm — it reads
   # R_O_EE from the daemon's state stream.
   fr3-stack-ft:
