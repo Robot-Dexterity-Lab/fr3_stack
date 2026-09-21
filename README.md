@@ -8,7 +8,7 @@ Build the docs locally:
 python3 -m pip install -r requirements-docs.txt
 python3 -m mkdocs serve -f docs/config/mkdocs.yml
 ```
-📚 [Docs]( http://127.0.0.1:8000) · [Quickstart](docs/quickstart.md)
+📚 [Docs](https://robot-dexterity-lab.github.io/fr3_stack/) · [Quickstart](https://robot-dexterity-lab.github.io/fr3_stack/quickstart.html)
 
 ## Install
 

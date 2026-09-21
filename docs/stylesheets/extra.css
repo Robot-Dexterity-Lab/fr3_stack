@@ -60,28 +60,12 @@
 .project-actions { display: flex; align-items: center; gap: 24px; margin-top: 24px; font-size: 14px; }
 .project-home .project-primary { display: inline-flex; align-items: center; gap: 28px; background: #245eaf; color: #fff; border-radius: 3px; padding: 9px 16px; text-decoration: none; font-weight: 500; }
 .project-home .project-primary:hover { background: #194b94; }
-.project-home h2 { font-size: 19px; letter-spacing: -.02em; line-height: 1.4; margin: 0; padding: 0; font-weight: 600; }
-.project-resources { border-top: 1px solid var(--site-rule); display: grid; grid-template-columns: 1.2fr 1fr; gap: 64px; padding: 36px 0; }
-.project-start > p { font-size: 14px; line-height: 1.7; color: var(--site-muted); margin: 14px 0; }
-.project-code { background: #f0f5fc; margin-top: 20px; border-radius: 4px; overflow: hidden; }
-.code-label { display: block; padding: 10px 16px; font-size: 11px; color: var(--site-muted); border-bottom: 1px solid #dce7f6; }
-.project-code pre { margin: 0; }
-.project-code pre code { padding: 16px; background: transparent; font-size: 12px; line-height: 1.8; }
-.code-keyword { color: #245eaf; }
-.code-string { color: #126b9a; }
-.project-home .project-note { font-size: 12px; color: var(--site-muted); margin: 10px 0 0; }
-.project-guides h2 { margin-bottom: 8px; }
-.project-home .guide-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--site-rule); color: #234b7e; text-decoration: none; }
-.guide-row strong { display: block; font-size: 14px; font-weight: 500; }
-.guide-row small { display: block; font-size: 12px; line-height: 1.5; color: var(--site-muted); margin-top: 3px; }
-.guide-row > span:last-child { color: #6587b5; }
-.project-home .guide-row:hover { color: #245eaf; border-color: #8bafdf; }
-.project-bottom { border-top: 1px solid var(--site-rule); padding: 18px 0 28px; color: var(--site-muted); font-size: 12px; line-height: 1.7; }
-.project-bottom p { margin: 0 0 10px; }
+.project-links { display: flex; flex-wrap: wrap; gap: 16px 40px; border-top: 1px solid var(--site-rule); padding: 24px 0 40px; }
+.project-links a { display: inline-flex; gap: 16px; align-items: center; font-size: 14px; text-decoration: none; }
+.project-links a:hover { text-decoration: underline; }
 
 @media (max-width: 900px) {
   .project-intro { gap: 36px; }
-  .project-resources { gap: 32px; }
 }
 @media (max-width: 600px) {
   .md-content:has(.project-home) .md-content__inner { margin: 0 20px; }
@@ -93,7 +77,6 @@
   .project-description br { display: none; }
   .project-summary > p { font-size: 14px; }
   .project-actions { margin-top: 20px; }
-  .project-resources { grid-template-columns: 1fr; gap: 32px; padding: 28px 0; }
   .md-typeset h1 { font-size: 28px; }
   .md-typeset h2 { font-size: 22px; }
   .project-home h2 { font-size: 19px; }
