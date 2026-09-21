@@ -43,6 +43,9 @@ class State:
     last_error:  str        = ""
     valid:       bool       = False
 
+    # Local monotonic receive time; never serialized on the wire.
+    received_at: Optional[float] = None
+
     @property
     def has_ft_sensor(self) -> bool:
         return self.wrench_ft is not None
@@ -68,6 +71,7 @@ class State:
             running        = self.running,
             last_error     = self.last_error,
             valid          = self.valid,
+            received_at    = self.received_at,
         )
 
     @classmethod

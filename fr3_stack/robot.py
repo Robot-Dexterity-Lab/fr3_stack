@@ -50,9 +50,13 @@ class Robot:
         state_port: int = 5556,
         *,
         profiles: Optional[dict[str, str]] = None,
+        command_send_timeout_ms: int | None = None,
     ):
         """``profiles`` selects per-controller defaults at init, e.g.
         ``{"cartesian_impedance": "stiff"}``."""
+        if command_send_timeout_ms is not None and (not isinstance(command_send_timeout_ms, int) or command_send_timeout_ms < 0):
+            raise ValueError("command_send_timeout_ms must be a nonnegative integer")
+        self._command_send_timeout_ms = command_send_timeout_ms
         self._cmd_addr   = f"tcp://{host}:{cmd_port}"
         self._state_addr = f"tcp://{host}:{state_port}"
         self._ctx: Optional[zmq.Context] = None
@@ -87,12 +91,22 @@ class Robot:
 
     # ---- lifecycle --------------------------------------------------------
 
+    @property
+    def command_send_timeout_ms(self) -> int | None:
+        """Configured transport timeout; None preserves legacy blocking sends."""
+        return self._command_send_timeout_ms
+
     def connect(self) -> None:
+        if self._cmd_sock is not None:
+            return
         self._ctx = zmq.Context.instance()
 
         self._cmd_sock = self._ctx.socket(zmq.PUSH)
         self._cmd_sock.setsockopt(zmq.CONFLATE, 1)
         self._cmd_sock.setsockopt(zmq.SNDHWM,   1)
+        if self._command_send_timeout_ms is not None:
+            self._cmd_sock.setsockopt(zmq.SNDTIMEO, self._command_send_timeout_ms)
+            self._cmd_sock.setsockopt(zmq.IMMEDIATE, 1)
         self._cmd_sock.connect(self._cmd_addr)
 
         self._state_sock = self._ctx.socket(zmq.SUB)
@@ -113,6 +127,9 @@ class Robot:
             if s is not None:
                 s.close(linger=0)
         self._cmd_sock = self._state_sock = None
+        self._sub_thread = None
+        with self._state_lock:
+            self._state = State()
 
     def __enter__(self):  self.connect(); return self
     def __exit__(self, *exc): self.close()
@@ -819,4 +836,5 @@ class Robot:
                         self._sub_err_suppressed += 1
                     continue
                 with self._state_lock:
+                    new.received_at = time.monotonic()
                     self._state = new

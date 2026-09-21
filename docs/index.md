@@ -7,6 +7,14 @@ Low-latency, ROS-free control stack for the Franka Research 3.
 
 The two processes talk over ZMQ + Cap'n Proto. Both sockets use `CONFLATE=1` (latest-wins), so a slow consumer never backs up.
 
+## Dual-arm development preview
+
+The [software coordinator](dual-arm.md) is implemented on the
+[feature branch](https://github.com/Robot-Dexterity-Lab/fr3_stack/tree/feat/dual-arm-coordinator).
+**Real-robot evaluation is pending.** NUC-side synchronized execution remains
+[planned work](dual-arm-coordination-plan.md). See the
+[development guide](development.md) for module boundaries and verification.
+
 ## Controllers
 
 | Name                  | Behavior                                                              |

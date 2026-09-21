@@ -1,6 +1,6 @@
 # Wire protocol
 
-Cap'n Proto schema lives in [`proto/fr3.capnp`](https://github.com/kingchou007/fr3_stack/blob/main/proto/fr3.capnp) — the single source of truth, shared by:
+Cap'n Proto schema lives in [`proto/fr3.capnp`](https://github.com/Robot-Dexterity-Lab/fr3_stack/blob/main/proto/fr3.capnp) — the single source of truth, shared by:
 
 - the Python client (`pycapnp` parses at import time)
 - the C++ daemon (`capnp_generate_cpp` at build time)
@@ -45,7 +45,7 @@ struct State {
 
 Each `Command` is a *complete* config — clients send the full struct each time. The Python client caches the last-sent values per controller so partial updates from user code still produce a fully-populated message on the wire.
 
-The full per-command structs (`IdleCmd`, `CartesianImpedanceCmd`, `HybridCmd`, `MoveToCmd`) live in [`proto/fr3.capnp`](https://github.com/kingchou007/fr3_stack/blob/main/proto/fr3.capnp).
+The full per-command structs (`IdleCmd`, `CartesianImpedanceCmd`, `HybridCmd`, `MoveToCmd`) live in [`proto/fr3.capnp`](https://github.com/Robot-Dexterity-Lab/fr3_stack/blob/main/proto/fr3.capnp).
 
 ### `IdleCmd` semantics
 
