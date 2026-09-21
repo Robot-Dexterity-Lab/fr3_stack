@@ -1,8 +1,9 @@
-# Collaborative development
+# Development entry points
 
-Repository-wide instructions live in
-[AGENTS.md](https://github.com/Robot-Dexterity-Lab/fr3_stack/blob/feat/dual-arm-coordinator/AGENTS.md).
-All documentation is written in English.
+Start with the [agent project guide](https://github.com/Robot-Dexterity-Lab/fr3_stack/blob/main/AGENTS.md)
+for the workstation/NUC architecture, command and feedback paths, task-specific
+code entry points, and verification commands. It helps a new agent understand
+the repository before making changes.
 
 ## Boundaries
 
