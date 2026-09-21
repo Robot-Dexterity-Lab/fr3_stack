@@ -1,8 +1,7 @@
 site_name: fr3-stack
 site_description: Franka Research 3 control stack — NUC daemon + Python client.
-site_url: https://kingchou007.github.io/fr3_stack/
-repo_url: https://github.com/kingchou007/fr3_stack
-repo_name: kingchou007/fr3_stack
+repo_url: https://github.com/Robot-Dexterity-Lab/fr3_stack
+repo_name: Robot-Dexterity-Lab/fr3_stack
 edit_uri: edit/main/docs/docs_backup/
 docs_dir: docs/docs_backup
 site_dir: site-backup

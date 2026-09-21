@@ -1,8 +1,8 @@
 site_name: fr3-stack
+site_url: https://robot-dexterity-lab.github.io/fr3_stack/
 site_description: Franka Research 3 control stack — NUC daemon + Python client.
-site_url: https://kingchou007.github.io/fr3_stack/
-repo_url: https://github.com/kingchou007/fr3_stack
-repo_name: kingchou007/fr3_stack
+repo_url: https://github.com/Robot-Dexterity-Lab/fr3_stack
+repo_name: Robot-Dexterity-Lab/fr3_stack
 edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: site
@@ -49,6 +49,9 @@ nav:
   - Controllers: controllers.md
   - Wire protocol: wire.md
   - Architecture: architecture.md
+  - Dual-arm coordinator: dual-arm.md
+  - Dual-arm plan: dual-arm-coordination-plan.md
+  - Development: development.md
 
 markdown_extensions:
   - admonition

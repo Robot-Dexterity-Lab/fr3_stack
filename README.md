@@ -62,6 +62,12 @@ admittance / hybrid / joint impedance.
 
 Plus `MoveTo` for min-jerk setup moves.
 
+## Dual-arm coordination
+
+Use the [dual-arm software coordinator](docs/dual-arm.md) for paired targets
+and fault handling over two independent single-arm clients. It is experimental;
+real-robot evaluation and synchronized NUC execution remain pending.
+
 ## Status
 
 Pre-alpha. APIs will change. Single FR3 only.

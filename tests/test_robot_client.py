@@ -452,21 +452,8 @@ def test_state_updates_on_publish(client, daemon):
 
 
 def test_wait_for_state_returns_when_published(client, daemon):
-    import threading
-    pub_started = threading.Event()
-
-    def publisher():
-        pub_started.set()
-        deadline = time.monotonic() + 2.0
-        while time.monotonic() < deadline:
-            daemon.publish_state(controller="idle", pos=(1, 2, 3))
-            time.sleep(0.02)
-
-    t = threading.Thread(target=publisher, daemon=True)
-    t.start()
-    pub_started.wait()
-
-    s = client.wait_for_state(timeout=2.0)
+    with daemon.publish_loop(period=0.02, controller="idle", pos=(1, 2, 3)):
+        s = client.wait_for_state(timeout=2.0)
     assert s.valid is True
     assert list(s.pos) == [1.0, 2.0, 3.0]
 
