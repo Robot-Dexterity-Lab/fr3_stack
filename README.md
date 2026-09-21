@@ -80,11 +80,6 @@ and preserves the root build context and mount paths. See
 ```bash
 python3 -m pip install -e '.[dev]'
 python3 -m pytest
-
-python3 -m pip install -r docs/requirements.txt
-python3 -m mkdocs serve -f docs/config/mkdocs.yml
-# Check the website before publishing:
-python3 -m mkdocs build --strict -f docs/config/mkdocs.yml
 ```
 
 Start with [AGENTS.md](AGENTS.md) for architecture and task-specific checks.
