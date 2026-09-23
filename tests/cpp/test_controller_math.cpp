@@ -784,6 +784,25 @@ static void test_soft_deadband_helper() {
 //   Jacobian = [I₆|0] in the fixture → τ[0] = F_imp_x. The OLD vs NEW
 //   magnitudes differ by ~140×, so the window [0.02, 0.04] cleanly catches
 //   regressions to the absolute-velocity formula.
+//
+//   THE TWO CONTROLLERS DIFFER, and the trace above is the admittance one.
+//   Hybrid damps against a low-passed inner velocity:
+//
+//       inner_v_filt_ = α·inner_v_ + (1−α)·inner_v_filt_,  α = 0.1 default
+//
+//   because its inner_v_ for velocity axes is a 1-tick-lag P-tracker
+//   recomputed from (smoothed_t − inner_t)/kDt, so it inherits the LERP'd
+//   target's velocity discontinuities and buzzes audibly at ~100 Hz if fed
+//   raw into D. Position integration still uses the raw inner_v_, so this
+//   costs no tracking accuracy. On tick 1 the filter state starts at zero:
+//
+//       inner_v_filt_ = 0.1 · 1e−3 = 1e−4
+//       F_imp_x       = 200·1e−6 + 28·1e−4                          ≈ 3.0e−3
+//
+//   Still 15× the OLD 2.0e−4, so the regression is caught just as cleanly —
+//   only the window differs. Setting α = 1.0 makes the filter a pass-through
+//   and must reproduce the admittance number exactly; the hybrid test below
+//   asserts both, which pins the structural fix and the filter at once.
 // ============================================================================
 static void test_admittance_outer_damp_uses_error_velocity() {
     section("CartesianAdmittance: outer D references (v − v_inner), not v");
@@ -807,23 +826,41 @@ static void test_admittance_outer_damp_uses_error_velocity() {
 
 static void test_hybrid_outer_damp_uses_error_velocity() {
     section("HybridForceMotion n_af=0: outer D references (v − v_inner)");
-    franka::RobotState s; set_identity_pose(s); set_q_safe(s);
-    s.O_F_ext_hat_K = {5.0, 0, 0, 0, 0, 0};
-    franka::Model m; zero_coriolis(m); set_jacobian_id6_pad(m);
 
-    HybridForceMotionController c;
-    HybridForceMotionCfg cfg;
-    cfg.target              = Eigen::Affine3d::Identity();
-    cfg.n_af                = 0;
-    cfg.wrench_filter_alpha = 1.0;
-    c.set_cfg(cfg);
-    c.reset(s);
+    // The damping reference is low-passed (inner_v_filter_alpha), so the
+    // expected magnitude differs from the admittance case above. Run the
+    // default filter and the pass-through back to back: the first pins the
+    // shipped behaviour, the second pins the structural fix itself by
+    // reproducing the admittance number exactly.
+    const auto tau0_with_alpha = [](double inner_v_filter_alpha) {
+        franka::RobotState s; set_identity_pose(s); set_q_safe(s);
+        s.O_F_ext_hat_K = {5.0, 0, 0, 0, 0, 0};
+        franka::Model m; zero_coriolis(m); set_jacobian_id6_pad(m);
 
-    auto tau = c.compute(s, m);
-    CHECK(tau[0] > 0.02,
-          "τ[0] picks up +D·v_inner feedforward (≫ K·e alone)");
-    CHECK(tau[0] < 0.04,
-          "τ[0] inside analytic NEW-behavior window (~2.82e−2)");
+        HybridForceMotionController c;
+        HybridForceMotionCfg cfg;
+        cfg.target                 = Eigen::Affine3d::Identity();
+        cfg.n_af                   = 0;
+        cfg.wrench_filter_alpha    = 1.0;
+        cfg.inner_v_filter_alpha   = inner_v_filter_alpha;
+        c.set_cfg(cfg);
+        c.reset(s);
+        return c.compute(s, m)[0];
+    };
+
+    // α = 0.1 (default): inner_v_filt_ = 0.1·1e−3 → τ[0] ≈ 3.0e−3.
+    const double tau_default = tau0_with_alpha(0.1);
+    CHECK(tau_default > 0.002,
+          "τ[0] picks up +D·v_inner_filt feedforward (≫ K·e alone, 2.0e−4)");
+    CHECK(tau_default < 0.004,
+          "τ[0] inside analytic window for the default filter (~3.0e−3)");
+
+    // α = 1.0: filter is a pass-through, so hybrid must land on the same
+    // number as CartesianAdmittance. If these two ever diverge, the outer
+    // damping formulas have drifted apart.
+    const double tau_passthrough = tau0_with_alpha(1.0);
+    CHECK(near(tau_passthrough, 2.82e-2, 1e-3),
+          "with the filter disabled, τ[0] matches the admittance value (~2.82e−2)");
 }
 
 // At admittance equilibrium under sustained F_ext, inner_v → 0 so the FF
