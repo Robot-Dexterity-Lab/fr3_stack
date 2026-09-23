@@ -102,7 +102,7 @@ If you use fr3-stack in your research, please cite it:
 ```bibtex
 @software{li_fr3stack_2026,
   author  = {Li, Jinzhou and Cheng, Xianyi},
-  title   = {fr3-stack: Low-latency ROS-free control for the Franka Research 3},
+  title   = {fr3-stack: A low-latency, ROS-free control suite for the Franka Research 3},
   year    = {2026},
   version = {0.1.0},
   url     = {https://github.com/Robot-Dexterity-Lab/fr3_stack}
