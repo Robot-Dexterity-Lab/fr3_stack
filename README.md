@@ -95,6 +95,24 @@ synchronize execution on the NUCs. See the
 [dual-arm guide](https://robot-dexterity-lab.github.io/fr3_stack/dual-arm.html)
 for behavior and limitations.
 
+## Citation
+
+If you use fr3-stack in your research, please cite it:
+
+```bibtex
+@software{li_fr3stack_2026,
+  author  = {Li, Jinzhou and Cheng, Xianyi},
+  title   = {fr3-stack: Low-latency ROS-free control for the Franka Research 3},
+  year    = {2026},
+  version = {0.1.0},
+  url     = {https://github.com/Robot-Dexterity-Lab/fr3_stack}
+}
+```
+
+Machine-readable metadata is in [CITATION.cff](CITATION.cff); GitHub renders it
+as *Cite this repository* in the sidebar. Keep the two in step when the version
+or the author list changes.
+
 ## License
 
 [MIT](LICENSE)
