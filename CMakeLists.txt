@@ -59,6 +59,7 @@ if(FR3_BUILD_DAEMON)
 
     add_executable(fr3-stack
         src/main.cpp
+        src/ring_log_writer.cpp
         src/sensors/bota/wrench_source.cpp
         src/sensors/bota/bota_wrench_source.cpp
         src/sensors/compensated_wrench_source.cpp
@@ -149,6 +150,16 @@ if(FR3_BUILD_TESTS)
     target_compile_options(test_controller_math
         PRIVATE -Wall -Wextra -Wno-unused-function -O2)
 
+    # The RT ring log needs neither Eigen, libfranka nor the franka mock --
+    # it is a plain SPSC buffer -- so it builds and runs on its own.
+    add_executable(test_ring_log
+        tests/cpp/test_ring_log.cpp
+        src/ring_log_writer.cpp)
+    target_include_directories(test_ring_log PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(test_ring_log PRIVATE Threads::Threads)
+    target_compile_options(test_ring_log PRIVATE -Wall -Wextra -O2)
+
     enable_testing()
     add_test(NAME controller_math COMMAND test_controller_math)
+    add_test(NAME ring_log COMMAND test_ring_log)
 endif()

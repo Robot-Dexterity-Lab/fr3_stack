@@ -215,4 +215,18 @@ class Controller {
     virtual void reset(const franka::RobotState& s) = 0;
     virtual std::array<double, 7> compute(const franka::RobotState&,
                                           const franka::Model&) = 0;
+
+    // The SE(3) setpoint this controller is currently tracking, if it has
+    // one. Read-only, and false for controllers that track no pose
+    // (gravity compensation, joint impedance).
+    //
+    // Exists for the 1 kHz sysid ring log: identification replays the
+    // *commanded* trajectory in simulation, so a log without the live
+    // setpoint cannot be fitted against. Reading it here rather than
+    // reconstructing it in main.cpp keeps the interpolator/generator
+    // precedence in one place.
+    virtual bool pose_target(Eigen::Affine3d& out) const {
+        (void)out;
+        return false;
+    }
 };
