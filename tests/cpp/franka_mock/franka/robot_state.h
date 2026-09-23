@@ -18,6 +18,7 @@ struct RobotState {
     std::array<double, 7>  dq{};
     std::array<double, 16> O_T_EE{};        // column-major SE(3)
     std::array<double, 6>  O_F_ext_hat_K{};
+    std::array<double, 7>  tau_J{};         // measured link-side torque
     std::array<double, 7>  tau_J_d{};
     struct Time {
         double t{0.0};

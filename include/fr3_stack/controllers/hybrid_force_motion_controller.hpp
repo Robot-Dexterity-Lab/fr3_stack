@@ -56,6 +56,11 @@ class HybridForceMotionController : public Controller {
     // installed by the most recent set_cfg().
     void set_target(const Eigen::Affine3d& T) { cfg_.target = T; }
 
+    bool pose_target(Eigen::Affine3d& out) const override {
+        out = cfg_.target;
+        return true;
+    }
+
     // Whether the dispatcher should feed cfg_.target through the streaming
     // LERP interpolator before set_target(). Mirrors CartesianImpedance.
     bool linear_interp_enabled() const { return cfg_.linear_interp; }

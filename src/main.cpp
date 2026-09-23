@@ -55,7 +55,10 @@
 #include <iostream>
 #include <mutex>
 #include <string>
+#include <cstdint>
 #include <thread>
+
+#include <fr3_stack/ring_log_writer.hpp>
 #include <vector>
 
 // ============================================================================
@@ -449,6 +452,11 @@ struct Args {
     // carries both compensated (`wrenchFt`) and raw (`wrenchFtRaw`) — only
     // the controllers' input changes.
     bool           ft_controllers_raw{false};
+    // Optional 1 kHz state log for system identification. Empty ⇒ off.
+    // The ~200 Hz state publish cannot resolve the few-millisecond actuation
+    // delay a sysid fit needs, so the RT callback records every tick into a
+    // ring that a writer thread drains to this path. See ring_log.hpp.
+    std::string    log_1khz;
 };
 
 Args parse_args(int argc, char** argv) {
@@ -488,6 +496,7 @@ Args parse_args(int argc, char** argv) {
         else if (k == "--ft-sensor-config") a.ft_sensor_config = next();
         else if (k == "--ft-calib")         a.ft_calib_path    = next();
         else if (k == "--ft-controllers-raw") a.ft_controllers_raw = true;
+        else if (k == "--log-1khz")         a.log_1khz         = next();
         // Backwards-compat for the original Bota-only flags. Equivalent to
         // --ft-sensor-kind bota --ft-sensor-config <dir>/<json>.
         else if (k == "--bota-config-dir") {
@@ -513,6 +522,8 @@ Args parse_args(int argc, char** argv) {
                       << "                               /opt/fr3-stack/calib/ft_calibration.yaml (docker convention)\n"
                       << "  [--ft-controllers-raw]       feed RAW wrench to admittance/hybrid even if calib loaded\n"
                       << "                               (state.wrench_ft on the wire stays compensated)\n"
+                      << "  [--log-1khz <path.csv>]      record every 1 kHz control tick to CSV (system identification);\n"
+                      << "                               off by default. Gaps, if any, show as jumps in the seq column\n"
                       << "  [--bota-config-dir <path>]   deprecated; equivalent to "
                          "--ft-sensor-kind bota --ft-sensor-config <path>/ethercat.json\n";
             std::exit(0);
@@ -632,6 +643,20 @@ int main(int argc, char** argv) {
     std::atomic<bool>  rt_stop_requested{false};
     std::string        rt_last_error;
     std::mutex         err_mu;
+
+    // ---- Optional 1 kHz sysid log -------------------------------------------
+    // Declared before the threads so it outlives them: the RT callback holds a
+    // raw pointer to the ring, and the writer is only stopped after rt_thread
+    // has joined. A failed open is reported, never fatal — losing a log must
+    // not take down a robot that is otherwise controlling fine.
+    std::unique_ptr<fr3_stack::RingLogWriter> ring_writer;
+    if (!args.log_1khz.empty()) {
+        ring_writer = std::make_unique<fr3_stack::RingLogWriter>(args.log_1khz);
+        std::cout << log_pfx() << "1 kHz sysid log → '" << args.log_1khz << "'\n";
+    }
+    fr3_stack::RingLog* ring = ring_writer ? &ring_writer->ring() : nullptr;
+    std::uint64_t       ring_seq = 0;
+    double              ring_t0  = -1.0;
 
     // ---- Optional FT sensor -------------------------------------------------
     // Started here (before the threads) so the worker is publishing frames
@@ -1097,6 +1122,47 @@ int main(int argc, char** argv) {
         std::array<double, 7> tau_out    = rate_limit(tau_prev, tau_target);
         tau_prev = tau_out;
 
+        // 1 kHz sysid log. Placed after rate limiting so `tau_cmd` is the
+        // torque actually sent, and after the target dispatch above so the
+        // recorded setpoint is the one this tick was computed against.
+        // push() never blocks: if the writer falls behind, the frame is
+        // dropped and counted rather than stalling the control loop.
+        if (ring) {
+            const double now = rt_now();
+            if (ring_t0 < 0.0) ring_t0 = now;
+
+            fr3_stack::RingLogFrame fr{};
+            fr.seq = ring_seq++;
+            fr.t_s = now - ring_t0;
+            for (int i = 0; i < 7; ++i) {
+                fr.q[i]       = s.q[i];
+                fr.dq[i]      = s.dq[i];
+                fr.tau_J[i]   = s.tau_J[i];
+                fr.tau_cmd[i] = tau_out[i];
+            }
+            const Eigen::Affine3d T_ee(Eigen::Matrix4d::Map(s.O_T_EE.data()));
+            const Eigen::Quaterniond q_ee(T_ee.rotation());
+            for (int i = 0; i < 3; ++i) fr.ee_pos[i] = T_ee.translation()[i];
+            fr.ee_quat_xyzw[0] = q_ee.x();
+            fr.ee_quat_xyzw[1] = q_ee.y();
+            fr.ee_quat_xyzw[2] = q_ee.z();
+            fr.ee_quat_xyzw[3] = q_ee.w();
+
+            // Controllers that track no pose (idle, joint impedance) leave
+            // the target columns at zero; `controller` says which it was.
+            Eigen::Affine3d T_tgt;
+            if (active->pose_target(T_tgt)) {
+                const Eigen::Quaterniond q_tgt(T_tgt.rotation());
+                for (int i = 0; i < 3; ++i) fr.target_pos[i] = T_tgt.translation()[i];
+                fr.target_quat_xyzw[0] = q_tgt.x();
+                fr.target_quat_xyzw[1] = q_tgt.y();
+                fr.target_quat_xyzw[2] = q_tgt.z();
+                fr.target_quat_xyzw[3] = q_tgt.w();
+            }
+            fr.controller = static_cast<std::uint32_t>(active->type());
+            ring->push(fr);
+        }
+
         franka::Torques out(tau_out);
         if (rt_stop_requested.load(std::memory_order_relaxed) || g_stop.load())
             return franka::MotionFinished(out);
@@ -1187,6 +1253,9 @@ int main(int argc, char** argv) {
     }
     rt_stop_requested = true;
     if (rt_thread.joinable())  rt_thread.join();
+    // Only safe once the RT callback can no longer push: stop() drains the
+    // ring, closes the file and prints the frame/drop tally.
+    if (ring_writer) ring_writer->stop();
     g_stop = true;
     if (cmd_thread.joinable()) cmd_thread.join();
     if (pub_thread.joinable()) pub_thread.join();
