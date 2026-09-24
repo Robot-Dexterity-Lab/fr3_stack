@@ -15,6 +15,11 @@ ZMQ. The daemon runs the controller through libfranka at 1 kHz.
 - Bota F/T sensor integration and calibration tools.
 - Experimental dual-arm coordination with one NUC per robot, paired target validation, and fault handling.
 
+For joint-space simulation calibration, see the
+[excitation and recording guide](docs/joint-sysid.md) and
+[implementation/acceptance TODO](TODO_FRANKATWIN.md). Continuous joint impedance
+already exists; fit-ready logging and independent simulation SI remain pending.
+
 ## Get started
 
 Clone the repository on the NUC and workstation. The commands below follow the
