@@ -55,6 +55,18 @@ Trace feedback through daemon state publication -> `Robot._sub_loop` -> `State`.
 - Dual-arm snapshots use local monotonic reception time. Paired targets are
   validated before sequential sends; a failure latches FAULT and attempts both
   application-supplied stop callbacks. Inspect `stop_errors`, not just exceptions.
+- **Every change gets a `CHANGELOG.md` entry, in the same commit or PR that
+  makes it.** Add it under `## [Unreleased]`, in the `Added` / `Changed` /
+  `Fixed` / `Removed` / `Deprecated` / `Security` group that fits, following
+  [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Write what changed
+  and *why it matters to someone using the stack* — a reader should be able to
+  tell whether the change affects them without opening the diff. Name the files
+  or flags involved and link the PR. A behaviour change that a user could hit
+  on the robot, however small, is never "too minor to log"; pure formatting,
+  typo fixes and comment-only edits are. When a release is cut, the
+  `[Unreleased]` block is renamed to the version with its date and a fresh
+  empty `[Unreleased]` opened above it, and the two compare links at the bottom
+  of the file are updated.
 - The current dual-arm implementation has no NUC execution synchronization,
   exclusive ownership lease, local watchdog, shared-frame calibration, or
   collision planner. `docs/dual-arm-coordination-plan.md` is planned work, not
@@ -71,6 +83,8 @@ Trace feedback through daemon state publication -> `Robot._sub_loop` -> `State`.
    both sides and test the contract; do not duplicate low-level logic in facades.
 5. Run the relevant checks below. State what passed, what could not run, and
    what still needs hardware evaluation. Update the affected `docs/` page.
+6. Add a `CHANGELOG.md` entry under `## [Unreleased]`. Every change gets one —
+   see the changelog rule under "Follow the existing behavior" above.
 
 When several agents work on one task, give each a concrete file/module scope,
 input/output contract, and verification command. Agree on shared interface
