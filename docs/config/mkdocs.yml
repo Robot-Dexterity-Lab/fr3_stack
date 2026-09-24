@@ -49,6 +49,7 @@ nav:
   - Reference:
       - Architecture: architecture.md
       - Wire protocol: wire.md
+      - 1 kHz recording: recording.md
   - Development:
       - Contributing & verification: development.md
       - Coordination roadmap: dual-arm-coordination-plan.md

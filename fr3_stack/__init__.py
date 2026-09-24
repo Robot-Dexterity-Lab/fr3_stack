@@ -7,6 +7,7 @@ from .geometry import Pose, Transform
 from .interpolation import InterpolationController, PoseTrajectoryInterpolator
 from .measure import Recorder
 from .robot import Robot
+from .recording import RecordingError, RecordingStatus, RecordingTimeout
 from .state import ControllerType, Observation, State
 
 __all__ = [
@@ -23,6 +24,9 @@ __all__ = [
     "Pose",
     "PoseTrajectoryInterpolator",
     "Recorder",
+    "RecordingError",
+    "RecordingStatus",
+    "RecordingTimeout",
     "Robot",
     "RobotAgent",
     "State",

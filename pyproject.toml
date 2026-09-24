@@ -20,6 +20,7 @@ dependencies = [
 dev = ["pytest>=7"]
 
 [project.scripts]
+fr3-recording            = "fr3_stack.recording:main"
 fr3-ft-calibrate         = "fr3_stack.sensors.bota.ft_calibration:main"
 fr3-ft-calibrate-record  = "fr3_stack.sensors.bota.ft_calibration_record:main"
 fr3-ft-calibrate-auto    = "fr3_stack.sensors.bota.ft_calibration_auto:main"

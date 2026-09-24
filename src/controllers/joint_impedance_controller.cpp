@@ -11,6 +11,18 @@ std::string JointImpedanceController::name() const {
 
 void JointImpedanceController::reset(const franka::RobotState& s) {
     smoothed_q_ = Eigen::Map<const Vector7d>(s.q.data());
+    ++reset_count_;
+}
+
+bool JointImpedanceController::joint_log_state(JointImpedanceLogState& out) const noexcept {
+    out.target = cfg_.q_target;
+    out.filtered_target = smoothed_q_;
+    out.K = cfg_.K;
+    out.D = cfg_.D;
+    out.filter_alpha = cfg_.filter_alpha;
+    out.use_friction = cfg_.use_friction;
+    out.reset_count = reset_count_;
+    return true;
 }
 
 std::array<double, 7> JointImpedanceController::compute(

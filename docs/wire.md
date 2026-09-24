@@ -5,6 +5,31 @@ Cap'n Proto schema lives in [`proto/fr3.capnp`](https://github.com/Robot-Dexteri
 - the Python client (`pycapnp` parses at import time)
 - the C++ daemon (`capnp_generate_cpp` at build time)
 
+## Recording service
+
+Recording has a separate REQ/REP endpoint on port 5557 (daemon
+`--recording-port`, Python `recording_port`). Unlike the conflated motion
+channel, it returns an acknowledgement for each start/stop/status request.
+No existing `Command` or `State` field ordinals change.
+
+- `RecordingRequest`: action (`status`, `start`, `stop`), `recordingId`, `path`.
+- `RecordingReply`: `accepted`, request-level `error`, and `status`.
+- `RecordingStatus`: ID/path, `active`, `ok`, `finished`, `complete`, counters
+  `written`/`discarded`/`dropped`, I/O `error` and `errorCode` (NUC errno).
+
+Messages are single-frame, unpacked Cap'n Proto, at most 65536 bytes. IDs use
+1–128 ASCII letters/digits/underscore/hyphen. Start paths are absolute NUC paths,
+at most 4096 UTF-8 bytes with no NUL. `accepted` describes the request; inspect
+status to learn whether file I/O succeeded. A start is acknowledged after the
+header flush; stop waits for in-flight capture, drain and close. The RT control
+loop does not wait on either operation.
+
+Only one recording can be active. IDs protect stop from delayed requests and
+make retries idempotent for the current/most recent session. A timeout cannot
+confirm cancellation; query status/retry the same ID. The Python client uses a
+fresh REQ socket after each operation so timeouts cannot leave it in the wrong
+REQ state. See [Recording](recording.md) for lifecycle, errors and examples.
+
 ## Vector ordering
 
 | Vector            | Order                                  |

@@ -310,3 +310,37 @@ struct State {
     # YAML was successfully loaded at boot.
     ftCompensated   @11 :Bool;
 }
+
+# Separate acknowledged REQ/REP service (default 5557), never sent through the
+# conflated motion-command channel. Existing Command/State ordinals unchanged.
+enum RecordingAction {
+    status @0;
+    start @1;
+    stop @2;
+}
+
+struct RecordingRequest {
+    action @0 :RecordingAction;
+    recordingId @1 :Text;  # unique per run; stop must match current session
+    path @2 :Text;         # absolute NUC/container path, exclusive creation
+}
+
+struct RecordingStatus {
+    recordingId @0 :Text;
+    path @1 :Text;
+    active @2 :Bool;
+    ok @3 :Bool;
+    finished @4 :Bool;
+    complete @5 :Bool;
+    written @6 :UInt64;
+    discarded @7 :UInt64;
+    dropped @8 :UInt64;
+    error @9 :Text;
+    errorCode @10 :Int32;
+}
+
+struct RecordingReply {
+    accepted @0 :Bool;
+    error @1 :Text;  # request-level error; status.error describes I/O failures
+    status @2 :RecordingStatus;
+}
