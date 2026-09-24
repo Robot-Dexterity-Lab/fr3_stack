@@ -17,6 +17,11 @@ ZMQ. The daemon runs the controller through libfranka at 1 kHz.
   `fr3-recording` start/stop/status commands while the controller keeps running.
 - Experimental dual-arm coordination with one NUC per robot, paired target validation, and fault handling.
 
+For joint-space simulation calibration, see the
+[excitation and recording guide](docs/joint-sysid.md) and
+[implementation/acceptance TODO](TODO_FRANKATWIN.md). Continuous joint impedance
+already exists; fit-ready logging and independent simulation SI remain pending.
+
 ## Get started
 
 Clone the repository on the NUC and workstation. The commands below follow the
@@ -91,11 +96,30 @@ constitute real-robot evaluation.
 
 ## Status
 
-`v0.1.0` is the first public preview; APIs may change. Dual-arm coordination is
+`v0.1.0` is the first public preview; APIs may change. Changes since then are
+in [CHANGELOG.md](CHANGELOG.md). Dual-arm coordination is
 experimental: real-robot evaluation is pending, and paired dispatch does not
 synchronize execution on the NUCs. See the
 [dual-arm guide](https://robot-dexterity-lab.github.io/fr3_stack/dual-arm.html)
 for behavior and limitations.
+
+## Citation
+
+If you use fr3-stack in your research, please cite it:
+
+```bibtex
+@software{li_fr3stack_2026,
+  author  = {Li, Jinzhou and Cheng, Xianyi},
+  title   = {fr3-stack: A low-latency, ROS-free control suite for the Franka Research 3},
+  year    = {2026},
+  version = {0.1.0},
+  url     = {https://github.com/Robot-Dexterity-Lab/fr3_stack}
+}
+```
+
+Machine-readable metadata is in [CITATION.cff](CITATION.cff); GitHub renders it
+as *Cite this repository* in the sidebar. Keep the two in step when the version
+or the author list changes.
 
 ## License
 

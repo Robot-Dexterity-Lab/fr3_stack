@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use fr3-stack in your research, please cite it as below."
+title: "fr3-stack: A low-latency, ROS-free control suite for the Franka Research 3"
+abstract: >-
+  A ROS-free Python client and real-time C++ daemon for the Franka Research 3,
+  running Cartesian impedance, hybrid force/position, admittance and joint
+  impedance control through libfranka at 1 kHz.
+type: software
+authors:
+  - family-names: Li
+    given-names: Jinzhou
+  - family-names: Cheng
+    given-names: Xianyi
+version: 0.1.0
+date-released: 2026-09-21
+license: MIT
+repository-code: https://github.com/Robot-Dexterity-Lab/fr3_stack
+url: https://robot-dexterity-lab.github.io/fr3_stack/
+keywords:
+  - franka
+  - franka research 3
+  - libfranka
+  - impedance control
+  - hybrid force control
+  - admittance control
+  - dexterous manipulation
+  - real-time control
