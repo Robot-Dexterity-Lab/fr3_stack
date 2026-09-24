@@ -45,6 +45,7 @@ nav:
   - Control guides:
       - Single arm: single-arm.md
       - Controllers: controllers.md
+      - Joint excitation: joint-sysid.md
       - Dual arm: dual-arm.md
   - Reference:
       - Architecture: architecture.md

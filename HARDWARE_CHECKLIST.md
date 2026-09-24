@@ -1,6 +1,6 @@
 # Hardware checklist — 1 kHz sysid log
 
-**Branch:** `feat/sysid-1khz-ring-log`
+**Integration:** [PR #5](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/5), targeting `main`
 **Updated:** 2026-09-23 (CSV v2, writer failure handling, independent recording control)
 
 The mock and I/O checks listed below have passed locally. Full daemon build
@@ -44,7 +44,7 @@ the controller keeps running. Upgrade both client and daemon before use.
 | Writer memory checks | AddressSanitizer + UndefinedBehaviorSanitizer: 105 pass, no findings |
 | Dynamic recording lifecycle | 24 assertions pass under AddressSanitizer + UndefinedBehaviorSanitizer; in-flight stop, repeated sessions with a live producer, ID protection, exclusive files and close failures covered |
 | Python/C++ recording protocol | Actual REP service compiled with `-Wall -Wextra -Werror`; Python start/stop/status, CLI, malformed/multipart requests, timeout recovery and separate motion channel covered |
-| Python regression | 238 tests pass with the C++ harness enabled; one existing Python 3.13 multiprocessing/fork deprecation warning |
+| Python regression | 278 tests pass after integrating the joint excitation suite, with the C++ harness enabled; one existing Python 3.13 multiprocessing/fork deprecation warning |
 | Docs and launcher | Strict MkDocs builds pass; `bash -n fr3-stack` and Compose YAML/field validation pass. Docker Compose CLI unavailable, so rendered Compose configuration and container launch remain unverified |
 | Shared RT capture function | Compiled against mock states; same-tick targets/configuration, actual periods, reset/re-entry and non-joint modes covered |
 | `tests/cpp/test_controller_math.cpp` | 88 pass / 0 fail; logged effective targets reproduce spring/damping torque |
