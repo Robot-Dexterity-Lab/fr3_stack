@@ -7,8 +7,11 @@ caches in this class make partial-update kwargs work.
 from __future__ import annotations
 
 import logging
+import os
+import re
 import threading
 import time
+import uuid
 from typing import Optional, Sequence, Union
 
 import numpy as np
@@ -16,6 +19,7 @@ import zmq
 
 from .config import load_controller_config
 from .state import State
+from .recording import RecordingError, RecordingStatus, request_recording, validate_timeout
 from .wire import (
     CONTROLLER_FLATTENERS,
     SCHEMA,
@@ -51,12 +55,18 @@ class Robot:
         *,
         profiles: Optional[dict[str, str]] = None,
         command_send_timeout_ms: int | None = None,
+        recording_port: int = 5557,
     ):
         """``profiles`` selects per-controller defaults at init, e.g.
         ``{"cartesian_impedance": "stiff"}``."""
         if command_send_timeout_ms is not None and (not isinstance(command_send_timeout_ms, int) or command_send_timeout_ms < 0):
             raise ValueError("command_send_timeout_ms must be a nonnegative integer")
         self._command_send_timeout_ms = command_send_timeout_ms
+        if isinstance(recording_port, bool) or not isinstance(recording_port, int) or not 1 <= recording_port <= 65535:
+            raise ValueError("recording_port must be an integer in 1..65535")
+        self._recording_addr = f"tcp://{host}:{recording_port}"
+        self._recording_lock = threading.Lock()
+        self._recording_id: str | None = None
         self._cmd_addr   = f"tcp://{host}:{cmd_port}"
         self._state_addr = f"tcp://{host}:{state_port}"
         self._ctx: Optional[zmq.Context] = None
@@ -133,6 +143,64 @@ class Robot:
 
     def __enter__(self):  self.connect(); return self
     def __exit__(self, *exc): self.close()
+
+    # ---- acknowledged recording control (separate from robot motion) -------
+
+    @property
+    def recording_id(self) -> str | None:
+        """Last start ID, including an unconfirmed start after a timeout."""
+        return self._recording_id
+
+    def start_recording(self, path: str | os.PathLike[str], *,
+                        recording_id: str | None = None,
+                        timeout: float = 5.0) -> RecordingStatus:
+        """Start 1 kHz logging to a NEW absolute NUC/container path.
+
+        Returns after the file header is flushed and capture is enabled.
+        Raises RecordingError on refusal or I/O failure; RecordingTimeout means
+        the result is unknown. Retry with the same ID to avoid a second run.
+        This does not change controller mode, gains, targets, or robot motion.
+        """
+        validate_timeout(timeout)
+        path = os.fspath(path)
+        if (not isinstance(path, str) or not path.startswith("/") or "\0" in path
+                or len(path.encode("utf-8")) > 4096):
+            raise ValueError("path must be an absolute NUC path without NUL, at most 4096 bytes")
+        run_id = uuid.uuid4().hex if recording_id is None else recording_id
+        if not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", run_id):
+            raise ValueError("invalid recording_id")
+        with self._recording_lock:
+            previous = self._recording_id
+            self._recording_id = run_id
+            try:
+                status = request_recording(self._recording_addr, "start", run_id, path, timeout)
+            except RecordingError as exc:
+                if exc.status.recording_id != run_id:
+                    self._recording_id = previous
+                raise
+            if not status.active or not status.ok:
+                raise RecordingError(status.error or "recording did not enter active state", status)
+            return status
+
+    def stop_recording(self, recording_id: str | None = None, *,
+                       timeout: float = 5.0) -> RecordingStatus:
+        """Stop only the selected recording, leaving robot control running.
+
+        Defaults to this client's last start ID. A separate client must pass
+        the ID from recording_status(). Returns after drain/flush/close; check
+        complete/error/counters before using the CSV. Repeated stop is safe.
+        Closing this Python client does NOT implicitly stop recording.
+        """
+        with self._recording_lock:
+            run_id = self._recording_id if recording_id is None else recording_id
+            if not isinstance(run_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", run_id):
+                raise ValueError("provide the recording_id to stop; this client has not started a recording")
+            return request_recording(self._recording_addr, "stop", run_id, timeout=timeout)
+
+    def recording_status(self, *, timeout: float = 5.0) -> RecordingStatus:
+        """Query the active or most recent run; this is not a motion command."""
+        with self._recording_lock:
+            return request_recording(self._recording_addr, "status", timeout=timeout)
 
     # ---- per-controller config / profile ----------------------------------
 

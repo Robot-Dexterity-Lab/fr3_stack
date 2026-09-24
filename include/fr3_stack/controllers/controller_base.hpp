@@ -20,6 +20,7 @@
 #include <fr3_stack/utils/controllers_common.hpp>
 
 #include <array>
+#include <cstdint>
 #include <string>
 
 enum class ControllerType {
@@ -207,6 +208,14 @@ struct HybridForceMotionCfg {
     Vector7d torque_thresholds{Vector7d::Zero()};  // |τ_ext[j]| cap (Nm)
 };
 
+// Read only on the control thread, after compute() for the recorded tick.
+struct JointImpedanceLogState {
+    Vector7d target, filtered_target, K, D;
+    double filter_alpha;
+    bool use_friction;
+    std::uint64_t reset_count;
+};
+
 class Controller {
  public:
     virtual ~Controller() = default;
@@ -215,4 +224,23 @@ class Controller {
     virtual void reset(const franka::RobotState& s) = 0;
     virtual std::array<double, 7> compute(const franka::RobotState&,
                                           const franka::Model&) = 0;
+
+    // The active SE(3) input target, before internal controller filtering,
+    // if it has one. Read-only, and false for controllers that track no pose
+    // (gravity compensation, joint impedance).
+    //
+    // Exists for the 1 kHz sysid ring log: identification replays the
+    // *commanded* trajectory in simulation, so a log without the live
+    // setpoint cannot be fitted against. Reading it here rather than
+    // reconstructing it in main.cpp keeps the interpolator/generator
+    // precedence in one place.
+    virtual bool pose_target(Eigen::Affine3d& out) const {
+        (void)out;
+        return false;
+    }
+
+    virtual bool joint_log_state(JointImpedanceLogState& out) const noexcept {
+        (void)out;
+        return false;
+    }
 };
