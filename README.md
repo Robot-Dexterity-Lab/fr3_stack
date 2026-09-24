@@ -89,7 +89,8 @@ constitute real-robot evaluation.
 
 ## Status
 
-`v0.1.0` is the first public preview; APIs may change. Dual-arm coordination is
+`v0.1.0` is the first public preview; APIs may change. Changes since then are
+in [CHANGELOG.md](CHANGELOG.md). Dual-arm coordination is
 experimental: real-robot evaluation is pending, and paired dispatch does not
 synchronize execution on the NUCs. See the
 [dual-arm guide](https://robot-dexterity-lab.github.io/fr3_stack/dual-arm.html)
