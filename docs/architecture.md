@@ -15,7 +15,16 @@ Two processes plus the contract between them.
 - **Client (Python)** runs on a workstation. Sends commands; reads state at ~200 Hz.
 - **Wire** is `proto/fr3.capnp` — included by both sides at build/import time. Edits propagate to both.
 
-Both ZMQ sockets use `CONFLATE=1` (latest-wins), so a slow consumer never backs up the RT loop and a slow producer never freezes the controller.
+The motion/state ZMQ sockets use `CONFLATE=1` (latest-wins), so a slow consumer never backs up the RT loop and a slow producer never freezes the controller.
+
+Recording uses a separate, acknowledged REQ/REP service on port 5557 and a
+non-RT service thread. `Robot.start_recording`, `stop_recording`, and
+`recording_status` do not enter the motion dispatcher. The manager owns a
+permanent SPSC ring; a writer thread owns each CSV. Stop disables capture and
+waits for an in-flight push outside RT before draining/closing. The RT callback
+only checks atomic flags and, when enabled, captures/pushes a fixed-size frame.
+The same daemon can record multiple files without a controller reset or restart.
+See [Recording](recording.md).
 
 ## Repo layout
 

@@ -13,7 +13,14 @@ ZMQ. The daemon runs the controller through libfranka at 1 kHz.
 - Cartesian impedance, hybrid force/position control, admittance, and joint impedance.
 - Pose-oriented operations with `Arm`, direct commands with `Robot`, and policy loops with `RobotAgent`.
 - Bota F/T sensor integration and calibration tools.
+- Optional [1 kHz recording](docs/recording.md), with independent Python and
+  `fr3-recording` start/stop/status commands while the controller keeps running.
 - Experimental dual-arm coordination with one NUC per robot, paired target validation, and fault handling.
+
+For joint-space simulation calibration, see the
+[excitation and recording guide](docs/joint-sysid.md) and
+[implementation/acceptance TODO](TODO_FRANKATWIN.md). Continuous joint impedance
+already exists; fit-ready logging and independent simulation SI remain pending.
 
 ## Get started
 

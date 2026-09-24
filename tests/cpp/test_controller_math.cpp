@@ -11,14 +11,11 @@
 //     cmake --build build --target test_controller_math
 //     ./build/test_controller_math
 //
-// Build (manual, no CMake):
-//     g++ -std=c++17 -O2 \
-//         -I include \
-//         -I tests/cpp/franka_mock \
-//         -I /usr/include/eigen3 \   # (or wherever Eigen is)
-//         tests/cpp/test_controller_math.cpp -o /tmp/test_controller_math \
-//         -lpthread
-//     /tmp/test_controller_math
+// Build manually without installed libfranka (compile the actual controllers):
+// g++ -std=c++17 -O2 -I tests/cpp/franka_mock -I include -I /usr/include/eigen3
+//     tests/cpp/test_controller_math.cpp src/controllers/*_controller.cpp
+//     -o /tmp/test_controller_math -pthread
+// (Join the three command lines above.) Then /tmp/test_controller_math.
 //
 // Coverage:
 //   - Utility math: ema/slerp_quat/log3, joint_limit_repulsion,
@@ -48,6 +45,7 @@
 #include <fr3_stack/controllers/gravity_compensation_controller.hpp>
 #include <fr3_stack/controllers/cartesian_impedance_controller.hpp>
 #include <fr3_stack/controllers/joint_impedance_controller.hpp>
+#include <fr3_stack/ring_log_capture.hpp>
 #include <fr3_stack/controllers/cartesian_admittance_controller.hpp>
 #include <fr3_stack/controllers/hybrid_force_motion_controller.hpp>
 
@@ -454,6 +452,112 @@ static void test_joint_imp_damping() {
     CHECK(near(tau[3], -cfg.D[3] * 0.2, 1e-9), "τ[3] = −D[3]·dq[3]");
 }
 
+static void test_joint_log_capture() {
+    section("JointImpedance: same-tick pre/post EMA and applied configuration");
+    franka::RobotState s; set_identity_pose(s); set_q_safe(s);
+    s.time.t = 42.0;
+    s.tau_J.fill(0.123);
+    s.dq.fill(0.01);
+    franka::Model m; zero_coriolis(m);
+    JointImpedanceController c;
+    JointImpedanceCfg cfg;
+    const Vector7d q0 = Eigen::Map<const Vector7d>(s.q.data());
+    for (int i = 0; i < 7; ++i) {
+        cfg.q_target[i] = q0[i] + 0.1 * (i + 1);
+        cfg.K[i] = 100 + i;
+        cfg.D[i] = 10 + i;
+    }
+    cfg.filter_alpha = 0.05;
+    c.set_cfg(cfg);
+    c.reset(s);
+    const auto tau = c.compute(s, m);
+    // Represent output of the daemon's limiter distinctly from raw compute().
+    std::array<double, 7> limited{}; limited.fill(0.5);
+    const auto f = fr3_stack::capture_ring_log_frame(s, c, limited, 7, 0.25, 0.001);
+    CHECK(f.joint_target_valid == 1 &&
+          f.controller == static_cast<std::uint32_t>(ControllerType::JointImpedance),
+          "joint mode explicitly validates joint target columns");
+    bool values_ok = true, torque_ok = true;
+    for (int i = 0; i < 7; ++i) {
+        const double filtered = q0[i] + 0.05 * (cfg.q_target[i] - q0[i]);
+        values_ok &= near(f.q_target[i], cfg.q_target[i], 1e-12)
+                  && near(f.q_target_filtered[i], filtered, 1e-12)
+                  && f.K_joint[i] == cfg.K[i] && f.D_joint[i] == cfg.D[i];
+        torque_ok &= near(tau[i], cfg.K[i] * (filtered - q0[i]) - cfg.D[i] * s.dq[i], 1e-10);
+        values_ok &= f.tau_cmd[i] == limited[i] && f.tau_J[i] == s.tau_J[i]
+                  && f.q[i] == s.q[i] && f.dq[i] == s.dq[i];
+    }
+    CHECK(values_ok, "all seven target/configuration/state/limited torque values match the tick");
+    CHECK(torque_ok, "logged effective target reproduces this tick's spring and damping torque");
+    CHECK(f.filter_alpha == 0.05 && f.joint_use_friction == 0 && f.joint_reset_count == 1,
+          "filter, compensation and reset state are explicit");
+    CHECK(f.seq == 7 && f.t_s == 0.25 && f.robot_time_s == 42.0 && f.control_period_s == 0.001,
+          "robot state time, callback period and host capture time stay distinct");
+    CHECK(f.target_pos[0] == 0 && f.target_quat_xyzw[3] == 0,
+          "legacy pose-target columns remain zero in joint mode");
+    const auto again = fr3_stack::capture_ring_log_frame(s, c, limited, 7, 0.25, 0.001);
+    CHECK(near(again.q_target_filtered[0], f.q_target_filtered[0], 1e-12),
+          "reading a snapshot does not advance the target filter");
+
+    c.compute(s, m);  // held input, another control tick
+    const auto held = fr3_stack::capture_ring_log_frame(s, c, limited, 8, 0.251, 0.001);
+    CHECK(near(held.q_target_filtered[0],
+               0.95 * f.q_target_filtered[0] + 0.05 * cfg.q_target[0], 1e-12),
+          "held targets continue filtering once per compute, without one-tick log lag");
+
+    cfg.q_target[0] -= 0.2;
+    cfg.filter_alpha = 0.25;
+    cfg.K[0] = 321.0;
+    cfg.D[0] = 12.0;
+    cfg.use_friction = true;
+    c.set_cfg(cfg);  // same controller: dispatch does not reset on each command
+    c.compute(s, m);
+    const auto changed = fr3_stack::capture_ring_log_frame(s, c, limited, 9, 0.252, 0.002);
+    CHECK(changed.q_target[0] == cfg.q_target[0] &&
+          near(changed.q_target_filtered[0],
+               0.75 * held.q_target_filtered[0] + 0.25 * cfg.q_target[0], 1e-12),
+          "new streaming target/configuration retains existing filter state");
+    CHECK(changed.K_joint[0] == 321 && changed.D_joint[0] == 12 &&
+          changed.filter_alpha == 0.25 && changed.joint_use_friction == 1 &&
+          changed.joint_reset_count == 1 && changed.control_period_s == 0.002,
+          "changed settings and non-nominal callback periods are captured");
+
+    s.q[0] += 0.3;
+    c.reset(s);  // re-entry after controller switch
+    c.compute(s, m);
+    const auto reset = fr3_stack::capture_ring_log_frame(s, c, limited, 10, 0.254, 0.001);
+    CHECK(reset.joint_reset_count == 2 &&
+          near(reset.q_target_filtered[0], 0.75 * s.q[0] + 0.25 * cfg.q_target[0], 1e-12),
+          "reset is visible and restarts EMA from current measured q");
+
+    cfg.filter_alpha = 1.0;
+    c.set_cfg(cfg);
+    c.compute(s, m);
+    const auto direct = fr3_stack::capture_ring_log_frame(s, c, limited, 11, 0.255, 0.001);
+    CHECK(near(direct.q_target_filtered[0], direct.q_target[0], 1e-12),
+          "alpha=1 records a pass-through target");
+
+    GravityCompensationController idle;
+    idle.reset(s);
+    const auto idle_frame = fr3_stack::capture_ring_log_frame(s, idle, limited, 12, 0.256, 0.001);
+    bool empty = idle_frame.joint_target_valid == 0 && idle_frame.joint_reset_count == 0;
+    for (int i = 0; i < 7; ++i)
+        empty &= idle_frame.q_target[i] == 0 && idle_frame.q_target_filtered[i] == 0
+              && idle_frame.K_joint[i] == 0 && idle_frame.D_joint[i] == 0;
+    CHECK(empty, "leaving joint mode cannot leak stale joint targets into another mode");
+
+    CartesianImpedanceController cart;
+    CartesianImpedanceCfg ccfg;
+    ccfg.target.translation()[0] = 0.01;
+    cart.set_cfg(ccfg); cart.reset(s);
+    set_jacobian_id6_pad(m); set_mass_alpha_I(m, 1.0);
+    cart.compute(s, m);
+    const auto cart_frame = fr3_stack::capture_ring_log_frame(s, cart, limited, 13, 0.257, 0.001);
+    CHECK(cart_frame.joint_target_valid == 0 &&
+          near(cart_frame.target_pos[0], 0.01, 1e-12),
+          "Cartesian pose columns keep their legacy pre-EMA semantics");
+}
+
 // ============================================================================
 // CartesianAdmittanceController
 // ============================================================================
@@ -784,6 +888,25 @@ static void test_soft_deadband_helper() {
 //   Jacobian = [I₆|0] in the fixture → τ[0] = F_imp_x. The OLD vs NEW
 //   magnitudes differ by ~140×, so the window [0.02, 0.04] cleanly catches
 //   regressions to the absolute-velocity formula.
+//
+//   THE TWO CONTROLLERS DIFFER, and the trace above is the admittance one.
+//   Hybrid damps against a low-passed inner velocity:
+//
+//       inner_v_filt_ = α·inner_v_ + (1−α)·inner_v_filt_,  α = 0.1 default
+//
+//   because its inner_v_ for velocity axes is a 1-tick-lag P-tracker
+//   recomputed from (smoothed_t − inner_t)/kDt, so it inherits the LERP'd
+//   target's velocity discontinuities and buzzes audibly at ~100 Hz if fed
+//   raw into D. Position integration still uses the raw inner_v_, so this
+//   costs no tracking accuracy. On tick 1 the filter state starts at zero:
+//
+//       inner_v_filt_ = 0.1 · 1e−3 = 1e−4
+//       F_imp_x       = 200·1e−6 + 28·1e−4                          ≈ 3.0e−3
+//
+//   Still 15× the OLD 2.0e−4, so the regression is caught just as cleanly —
+//   only the window differs. Setting α = 1.0 makes the filter a pass-through
+//   and must reproduce the admittance number exactly; the hybrid test below
+//   asserts both, which pins the structural fix and the filter at once.
 // ============================================================================
 static void test_admittance_outer_damp_uses_error_velocity() {
     section("CartesianAdmittance: outer D references (v − v_inner), not v");
@@ -807,23 +930,41 @@ static void test_admittance_outer_damp_uses_error_velocity() {
 
 static void test_hybrid_outer_damp_uses_error_velocity() {
     section("HybridForceMotion n_af=0: outer D references (v − v_inner)");
-    franka::RobotState s; set_identity_pose(s); set_q_safe(s);
-    s.O_F_ext_hat_K = {5.0, 0, 0, 0, 0, 0};
-    franka::Model m; zero_coriolis(m); set_jacobian_id6_pad(m);
 
-    HybridForceMotionController c;
-    HybridForceMotionCfg cfg;
-    cfg.target              = Eigen::Affine3d::Identity();
-    cfg.n_af                = 0;
-    cfg.wrench_filter_alpha = 1.0;
-    c.set_cfg(cfg);
-    c.reset(s);
+    // The damping reference is low-passed (inner_v_filter_alpha), so the
+    // expected magnitude differs from the admittance case above. Run the
+    // default filter and the pass-through back to back: the first pins the
+    // shipped behaviour, the second pins the structural fix itself by
+    // reproducing the admittance number exactly.
+    const auto tau0_with_alpha = [](double inner_v_filter_alpha) {
+        franka::RobotState s; set_identity_pose(s); set_q_safe(s);
+        s.O_F_ext_hat_K = {5.0, 0, 0, 0, 0, 0};
+        franka::Model m; zero_coriolis(m); set_jacobian_id6_pad(m);
 
-    auto tau = c.compute(s, m);
-    CHECK(tau[0] > 0.02,
-          "τ[0] picks up +D·v_inner feedforward (≫ K·e alone)");
-    CHECK(tau[0] < 0.04,
-          "τ[0] inside analytic NEW-behavior window (~2.82e−2)");
+        HybridForceMotionController c;
+        HybridForceMotionCfg cfg;
+        cfg.target                 = Eigen::Affine3d::Identity();
+        cfg.n_af                   = 0;
+        cfg.wrench_filter_alpha    = 1.0;
+        cfg.inner_v_filter_alpha   = inner_v_filter_alpha;
+        c.set_cfg(cfg);
+        c.reset(s);
+        return c.compute(s, m)[0];
+    };
+
+    // α = 0.1 (default): inner_v_filt_ = 0.1·1e−3 → τ[0] ≈ 3.0e−3.
+    const double tau_default = tau0_with_alpha(0.1);
+    CHECK(tau_default > 0.002,
+          "τ[0] picks up +D·v_inner_filt feedforward (≫ K·e alone, 2.0e−4)");
+    CHECK(tau_default < 0.004,
+          "τ[0] inside analytic window for the default filter (~3.0e−3)");
+
+    // α = 1.0: filter is a pass-through, so hybrid must land on the same
+    // number as CartesianAdmittance. If these two ever diverge, the outer
+    // damping formulas have drifted apart.
+    const double tau_passthrough = tau0_with_alpha(1.0);
+    CHECK(near(tau_passthrough, 2.82e-2, 1e-3),
+          "with the filter disabled, τ[0] matches the admittance value (~2.82e−2)");
 }
 
 // At admittance equilibrium under sustained F_ext, inner_v → 0 so the FF
@@ -881,6 +1022,7 @@ int main() {
 
     test_joint_imp_equilibrium();
     test_joint_imp_damping();
+    test_joint_log_capture();
 
     test_admittance_external_wrench();
 

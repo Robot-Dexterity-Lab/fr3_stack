@@ -25,6 +25,11 @@
 class CartesianAdmittanceController : public Controller {
  public:
     void set_cfg(const CartesianAdmittanceCfg& c) { cfg_ = c; }
+
+    bool pose_target(Eigen::Affine3d& out) const override {
+        out = cfg_.target;
+        return true;
+    }
     void set_wrench_source(WrenchSource* src) { wrench_src_ = src; }
 
     ControllerType        type() const override;

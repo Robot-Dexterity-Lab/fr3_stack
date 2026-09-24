@@ -16,8 +16,10 @@ class JointImpedanceController : public Controller {
     void                  reset(const franka::RobotState& s) override;
     std::array<double, 7> compute(const franka::RobotState& s,
                                   const franka::Model& model) override;
+    bool joint_log_state(JointImpedanceLogState& out) const noexcept override;
 
  private:
     JointImpedanceCfg cfg_;
     Vector7d          smoothed_q_{Vector7d::Zero()};
+    std::uint64_t     reset_count_{0};
 };

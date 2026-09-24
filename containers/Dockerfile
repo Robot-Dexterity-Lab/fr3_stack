@@ -173,7 +173,7 @@ COPY --from=builder /opt/fr3-stack/bin/cartesian_test           /usr/local/bin/
 # Bota driver JSON configs. Pass via --bota-config-dir /opt/bota/driver_config.
 COPY --from=builder /src/third_party/bota_driver_cpp/driver_config/  /opt/bota/driver_config/
 
-EXPOSE 5555 5556
+EXPOSE 5555 5556 5557
 
 ENTRYPOINT ["fr3-stack"]
 CMD ["--help"]

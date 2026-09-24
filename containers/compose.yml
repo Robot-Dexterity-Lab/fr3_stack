@@ -19,7 +19,7 @@ services:
       args:
         LIBFRANKA_VERSION: 0.17.0
     image: fr3-stack:latest
-    # Host networking so workstation can reach 5555/5556 directly and the
+    # Host networking so workstation can reach 5555/5556/5557 directly and the
     # daemon can reach the robot's FCI on its dedicated subnet.
     network_mode: host
     privileged: true            # SCHED_FIFO + RT scheduling, hardware access
@@ -36,6 +36,7 @@ services:
     # default_calib_path()). Read-only on the daemon side.
     volumes:
       - ./fr3_stack/sensors/bota/config:/opt/fr3-stack/calib:ro
+      - ${FR3_RECORDINGS_DIR:-./recordings}:/recordings
     # Argv assembled by /bin/sh so env-conditional flags can use shell-native
     # ${VAR:+--flag}, which drops the token entirely when VAR is unset.
     # Compose's YAML-list substitution cannot drop an element — an empty
@@ -56,6 +57,7 @@ services:
           --robot              "$$FR3_ROBOT_IP" \
           --cmd-port           "$$FR3_CMD_PORT" \
           --state-port         "$$FR3_STATE_PORT" \
+          --recording-port     "$$FR3_RECORDING_PORT" \
           --initial-controller "$$FR3_INITIAL_CONTROLLER" \
           $${FR3_FT_SENSOR_KIND:+--ft-sensor-kind "$$FR3_FT_SENSOR_KIND"} \
           $${FR3_FT_SENSOR_CONFIG:+--ft-sensor-config "$$FR3_FT_SENSOR_CONFIG"} \
@@ -64,6 +66,7 @@ services:
       FR3_ROBOT_IP:           "${FR3_ROBOT_IP:-192.168.1.11}"
       FR3_CMD_PORT:           "${FR3_CMD_PORT:-5555}"
       FR3_STATE_PORT:         "${FR3_STATE_PORT:-5556}"
+      FR3_RECORDING_PORT:     "${FR3_RECORDING_PORT:-5557}"
       FR3_INITIAL_CONTROLLER: "${FR3_INITIAL_CONTROLLER:-idle}"
       FR3_FT_SENSOR_KIND:     "${FR3_FT_SENSOR_KIND:-}"
       FR3_FT_SENSOR_CONFIG:   "${FR3_FT_SENSOR_CONFIG:-}"
