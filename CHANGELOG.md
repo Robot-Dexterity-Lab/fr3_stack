@@ -10,6 +10,36 @@ in [AGENTS.md](AGENTS.md).
 ## [Unreleased]
 
 ### Added
+- `TODO_FRANKATWIN.md` and `docs/joint-sysid.md` now distinguish the locally
+  implemented CSV v2/writer fixes and independent recording start/stop/status
+  (Python/CLI, port 5557) on `feat/sysid-1khz-ring-log` from remaining
+  daemon build, deployment, hardware acceptance, and portable-export work.
+  Existing client diagnostics remain non-fit-ready. Related work:
+  [#5](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/5).
+- `examples/joint_sysid.py` and `docs/joint-sysid.md`: offline CSV/SVG previews
+  and opt-in single-arm joint hold/sine/chirp/multisine streaming from the live
+  pose. Includes smooth envelopes, joint/reference limits, feedback/timing
+  guards, explicit gain/filter recording, partial-run status, and best-effort
+  termination on faults. Client logs are explicitly distinguished from the
+  pending 1 kHz identification contract; no daemon or sim dependency changes.
+  Adds deterministic trajectory/failure tests and a localhost FakeDaemon wire
+  test. Related logging work: [#5](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/5).
+- `TODO_FRANKATWIN.md`: local checklist for fixing sysid log error reporting,
+  defining target replay semantics, validating NUC data collection, and
+  exporting logs for independent simulation identification. Prioritizes joint-target
+  logging and staged joint chirp/multisine experiments with held-out validation,
+  and records the unresolved mount/XHand payload. Simulation exchanges files
+  without a runtime dependency on this stack. Separates verified mock
+  tests from pending hardware work so experiments can build on the existing
+  logging branch. Related work: [#5](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/5).
+- `docs/joint-sysid.md`, `TODO_FRANKATWIN.md`, and README links now document
+  the adopted joint-space simulation parameter identification route. Separate
+  the existing continuous joint interface from missing 1 kHz target logging,
+  and define payload provenance, portable-file handoff, controller/timing
+  parity, staged fitting, independent validation, profile export, and training
+  transfer gates. The sim repository remains independent; planned interfaces
+  are not advertised as implemented. Related logging work:
+  [#5](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/5).
 - Optional 1 kHz state log for system identification, off by default
   (`--log-1khz <path.csv>`). The daemon runs its controller at 1 kHz but
   publishes state at ~200 Hz, which cannot resolve the few-millisecond
