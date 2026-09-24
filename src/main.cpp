@@ -52,13 +52,16 @@
 #include <cmath>
 #include <cstring>
 #include <csignal>
+#include <filesystem>
 #include <iostream>
 #include <mutex>
 #include <string>
 #include <cstdint>
 #include <thread>
 
-#include <fr3_stack/ring_log_writer.hpp>
+#include <fr3_stack/recording.hpp>
+#include <fr3_stack/recording_server.hpp>
+#include <fr3_stack/ring_log_capture.hpp>
 #include <vector>
 
 // ============================================================================
@@ -457,6 +460,7 @@ struct Args {
     // delay a sysid fit needs, so the RT callback records every tick into a
     // ring that a writer thread drains to this path. See ring_log.hpp.
     std::string    log_1khz;
+    int recording_port{5557};
 };
 
 Args parse_args(int argc, char** argv) {
@@ -470,6 +474,7 @@ Args parse_args(int argc, char** argv) {
         if (k == "--robot")           a.robot_ip   = next();
         else if (k == "--cmd-port")   a.cmd_port   = std::stoi(next());
         else if (k == "--state-port") a.state_port = std::stoi(next());
+        else if (k == "--recording-port") a.recording_port = std::stoi(next());
         else if (k == "--initial-controller") {
             std::string v = next();
             if      (v == "idle")                a.initial_controller = ControllerType::GravityCompensation;
@@ -514,6 +519,7 @@ Args parse_args(int argc, char** argv) {
             std::cout << "usage: " << argv[0] << " --robot <ip>\n"
                       << "  [--cmd-port 5555]    workstation->NUC commands\n"
                       << "  [--state-port 5556]  NUC->workstation state\n"
+                      << "  [--recording-port 5557] acknowledged start/stop/status\n"
                       << "  [--initial-controller idle|cartesian_impedance|joint_impedance|admittance|hybrid]\n"
                       << "  [--cartesian|--joint|--admittance|--hybrid|--idle]   shorthand for the above\n"
                       << "  [--ft-sensor-kind <kind>]    FT sensor backend (currently: bota)\n"
@@ -522,8 +528,8 @@ Args parse_args(int argc, char** argv) {
                       << "                               /opt/fr3-stack/calib/ft_calibration.yaml (docker convention)\n"
                       << "  [--ft-controllers-raw]       feed RAW wrench to admittance/hybrid even if calib loaded\n"
                       << "                               (state.wrench_ft on the wire stays compensated)\n"
-                      << "  [--log-1khz <path.csv>]      record every 1 kHz control tick to CSV (system identification);\n"
-                      << "                               off by default. Gaps, if any, show as jumps in the seq column\n"
+                      << "  [--log-1khz <new-path.csv>] start 1 kHz recording at startup; off by default,\n"
+                      << "                               existing files refused; also supports remote start/stop\n"
                       << "  [--bota-config-dir <path>]   deprecated; equivalent to "
                          "--ft-sensor-kind bota --ft-sensor-config <path>/ethercat.json\n";
             std::exit(0);
@@ -545,6 +551,12 @@ int main(int argc, char** argv) {
         std::cerr << log_pfx() << "args error: " << e.what() << "\n"; return 1;
     }
 
+    if (args.recording_port < 1 || args.recording_port > 65535 ||
+        args.recording_port == args.cmd_port || args.recording_port == args.state_port) {
+        std::cerr << log_pfx() << "recording port must be distinct and in 1..65535\n";
+        return 1;
+    }
+
     // ---- ZMQ -----------------------------------------------------------------
     zmq::context_t ctx{1};
 
@@ -557,8 +569,16 @@ int main(int argc, char** argv) {
     state_sock.set(zmq::sockopt::sndhwm, 1);
     state_sock.bind("tcp://*:" + std::to_string(args.state_port));
 
+    zmq::socket_t recording_sock(ctx, zmq::socket_type::rep);
+    recording_sock.set(zmq::sockopt::rcvtimeo, 100);
+    recording_sock.set(zmq::sockopt::sndtimeo, 100);
+    recording_sock.set(zmq::sockopt::linger, 0);
+    recording_sock.set(zmq::sockopt::maxmsgsize, std::int64_t{65536});
+    recording_sock.bind("tcp://*:" + std::to_string(args.recording_port));
+
     std::cout << log_pfx() << "cmd   PULL  on tcp://*:" << args.cmd_port  << "\n";
     std::cout << log_pfx() << "state PUB   on tcp://*:" << args.state_port << "\n";
+    std::cout << log_pfx() << "record REP  on tcp://*:" << args.recording_port << "\n";
     std::cout << log_pfx() << "connecting to robot at " << args.robot_ip << " ...\n";
     std::cout.flush();
 
@@ -644,19 +664,22 @@ int main(int argc, char** argv) {
     std::string        rt_last_error;
     std::mutex         err_mu;
 
-    // ---- Optional 1 kHz sysid log -------------------------------------------
-    // Declared before the threads so it outlives them: the RT callback holds a
-    // raw pointer to the ring, and the writer is only stopped after rt_thread
-    // has joined. A failed open is reported, never fatal — losing a log must
-    // not take down a robot that is otherwise controlling fine.
-    std::unique_ptr<fr3_stack::RingLogWriter> ring_writer;
+    // Permanent ring; non-RT service controls writer lifecycle. Disabling
+    // capture and waiting for the in-flight producer makes stop/restart safe
+    // without changing the RT controller or freeing a ring it might use.
+    fr3_stack::RecordingManager recording;
     if (!args.log_1khz.empty()) {
-        ring_writer = std::make_unique<fr3_stack::RingLogWriter>(args.log_1khz);
-        std::cout << log_pfx() << "1 kHz sysid log → '" << args.log_1khz << "'\n";
+        const auto startup_id = "startup-" + std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count());
+        try {
+            // Preserve relative paths for the existing local startup flag.
+            // Remote requests must supply absolute paths on the NUC.
+            recording.start(startup_id, std::filesystem::absolute(args.log_1khz).string());
+        } catch (const std::exception& e) {
+            std::cerr << log_pfx() << "recording startup error: " << e.what() << "\n";
+            return 2;
+        }
     }
-    fr3_stack::RingLog* ring = ring_writer ? &ring_writer->ring() : nullptr;
-    std::uint64_t       ring_seq = 0;
-    double              ring_t0  = -1.0;
 
     // ---- Optional FT sensor -------------------------------------------------
     // Started here (before the threads) so the worker is publishing frames
@@ -758,6 +781,16 @@ int main(int argc, char** argv) {
             ft_compensated = false;
         }
     }
+
+    // The acknowledged recording service never enters the motion dispatcher.
+    std::thread recording_thread([&]() {
+        try {
+            fr3_stack::serve_recording(recording_sock, recording, g_stop);
+        } catch (const std::exception& e) {
+            if (!g_stop.load())
+                std::cerr << log_pfx() << "recording service stopped: " << e.what() << "\n";
+        }
+    });
 
     // ---- Command receiver thread ---------------------------------------------
     std::thread cmd_thread([&]() {
@@ -925,7 +958,7 @@ int main(int argc, char** argv) {
         return &grav_ctrl;
     };
 
-    auto cb = [&](const franka::RobotState& s, franka::Duration) -> franka::Torques {
+    auto cb = [&](const franka::RobotState& s, franka::Duration period) -> franka::Torques {
         // Pump R_O_EE into the compensator before any read() runs this tick.
         // try_lock based, so it never blocks even if pub_thread happens to be
         // mid-read on the same source.
@@ -1122,46 +1155,12 @@ int main(int argc, char** argv) {
         std::array<double, 7> tau_out    = rate_limit(tau_prev, tau_target);
         tau_prev = tau_out;
 
-        // 1 kHz sysid log. Placed after rate limiting so `tau_cmd` is the
-        // torque actually sent, and after the target dispatch above so the
-        // recorded setpoint is the one this tick was computed against.
-        // push() never blocks: if the writer falls behind, the frame is
-        // dropped and counted rather than stalling the control loop.
-        if (ring) {
-            const double now = rt_now();
-            if (ring_t0 < 0.0) ring_t0 = now;
-
-            fr3_stack::RingLogFrame fr{};
-            fr.seq = ring_seq++;
-            fr.t_s = now - ring_t0;
-            for (int i = 0; i < 7; ++i) {
-                fr.q[i]       = s.q[i];
-                fr.dq[i]      = s.dq[i];
-                fr.tau_J[i]   = s.tau_J[i];
-                fr.tau_cmd[i] = tau_out[i];
-            }
-            const Eigen::Affine3d T_ee(Eigen::Matrix4d::Map(s.O_T_EE.data()));
-            const Eigen::Quaterniond q_ee(T_ee.rotation());
-            for (int i = 0; i < 3; ++i) fr.ee_pos[i] = T_ee.translation()[i];
-            fr.ee_quat_xyzw[0] = q_ee.x();
-            fr.ee_quat_xyzw[1] = q_ee.y();
-            fr.ee_quat_xyzw[2] = q_ee.z();
-            fr.ee_quat_xyzw[3] = q_ee.w();
-
-            // Controllers that track no pose (idle, joint impedance) leave
-            // the target columns at zero; `controller` says which it was.
-            Eigen::Affine3d T_tgt;
-            if (active->pose_target(T_tgt)) {
-                const Eigen::Quaterniond q_tgt(T_tgt.rotation());
-                for (int i = 0; i < 3; ++i) fr.target_pos[i] = T_tgt.translation()[i];
-                fr.target_quat_xyzw[0] = q_tgt.x();
-                fr.target_quat_xyzw[1] = q_tgt.y();
-                fr.target_quat_xyzw[2] = q_tgt.z();
-                fr.target_quat_xyzw[3] = q_tgt.w();
-            }
-            fr.controller = static_cast<std::uint32_t>(active->type());
-            ring->push(fr);
-        }
+        // Only active recordings evaluate this fixed-size capture. start/stop
+        // synchronize the capture boundary without locks or waits in the RT path.
+        recording.record([&](std::uint64_t seq) {
+            return fr3_stack::capture_ring_log_frame(
+                s, *active, tau_out, seq, rt_now(), period.toSec());
+        });
 
         franka::Torques out(tau_out);
         if (rt_stop_requested.load(std::memory_order_relaxed) || g_stop.load())
@@ -1253,11 +1252,12 @@ int main(int argc, char** argv) {
     }
     rt_stop_requested = true;
     if (rt_thread.joinable())  rt_thread.join();
-    // Only safe once the RT callback can no longer push: stop() drains the
-    // ring, closes the file and prints the frame/drop tally.
-    if (ring_writer) ring_writer->stop();
     g_stop = true;
+    if (recording_thread.joinable()) recording_thread.join();
+    recording.shutdown();  // producer joined; flush/close any still-active run
     if (cmd_thread.joinable()) cmd_thread.join();
     if (pub_thread.joinable()) pub_thread.join();
-    return 0;
+    // Report unusable logging only after normal robot/thread shutdown. Disk
+    // failure never requests a control-mode change from the RT callback.
+    return recording.had_failed_recordings() ? 2 : 0;
 }

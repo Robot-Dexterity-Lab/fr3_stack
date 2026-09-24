@@ -33,11 +33,11 @@ namespace fr3_stack {
 //
 // Targets are included because identification replays the *commanded*
 // trajectory in simulation: without the setpoint the measured response
-// cannot be reproduced. `tau_cmd` is the torque actually sent, after the
-// daemon's final rate limiting, for the same reason.
+// cannot be reproduced. `tau_cmd` is the outgoing stack command after its
+// final limiter, before downstream libfranka/robot processing.
 struct RingLogFrame {
     std::uint64_t seq;                   // monotonic tick counter since start
-    double        t_s;                   // seconds since logging started
+    double        t_s;                   // callback-end host steady time, relative to first logged tick
     double        q[7];                  // measured joint position [rad]
     double        dq[7];                 // measured joint velocity [rad/s]
     double        tau_J[7];              // measured link-side torque [N.m]
@@ -48,6 +48,19 @@ struct RingLogFrame {
     double        target_quat_xyzw[4];   // active controller target, xyzw
     std::uint32_t controller;            // active ControllerType, as uint
     std::uint32_t pad;                   // explicit: keeps the struct hole-free
+    // CSV v2 additions. Joint target/configuration fields are zero when invalid;
+    // the validity flag distinguishes absence from a commanded zero target.
+    // Robot time and callback period are recorded in every controller mode.
+    double        q_target[7];          // active target BEFORE controller EMA [rad]
+    double        q_target_filtered[7]; // spring target AFTER this tick's EMA [rad]
+    double        K_joint[7];
+    double        D_joint[7];
+    double        filter_alpha;
+    double        robot_time_s;         // RobotState::time (robot clock)
+    double        control_period_s;     // callback period; first tick can be zero
+    std::uint64_t joint_reset_count;     // increments when joint controller resets
+    std::uint32_t joint_target_valid;
+    std::uint32_t joint_use_friction;
 };
 
 class RingLog {
@@ -101,6 +114,13 @@ class RingLog {
 
     // Slot count (a power of two); the ring holds one fewer frame than this.
     std::size_t capacity() const noexcept { return capacity_; }
+
+    // Non-RT only, with BOTH producer and consumer quiescent between recordings.
+    void reset() noexcept {
+        head_.store(0, std::memory_order_relaxed);
+        tail_.store(0, std::memory_order_relaxed);
+        dropped_.store(0, std::memory_order_relaxed);
+    }
 
     // Frames the producer offered and the ring could not accept. A log with a
     // non-zero count here has gaps, and should say so rather than be trusted

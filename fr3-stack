@@ -69,6 +69,8 @@ env vars (forwarded into the container):
   FR3_FT_HZ               ft smoke-test CSV rate (default: 250)
   FR3_CMD_PORT            workstation→NUC port   (default: 5555)
   FR3_STATE_PORT          NUC→workstation port   (default: 5556)
+  FR3_RECORDING_PORT      recording REQ/REP      (default: 5557)
+  FR3_RECORDINGS_DIR      host CSV directory    (default: ./recordings)
 
 examples:
   ./fr3-stack up cart                      # detached + tail logs
@@ -142,6 +144,7 @@ case "$cmd" in
     log "robot ip   = ${FR3_ROBOT_IP:-192.168.1.11}"
     log "cmd port   = ${FR3_CMD_PORT:-5555}"
     log "state port = ${FR3_STATE_PORT:-5556}"
+    log "record port = ${FR3_RECORDING_PORT:-5557}"
     if [[ -n "${FR3_FT_SENSOR_KIND:-}" ]]; then
       log "ft sensor  = ${FR3_FT_SENSOR_KIND}  (config: ${FR3_FT_SENSOR_CONFIG})"
     else
