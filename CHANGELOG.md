@@ -15,7 +15,7 @@ in [AGENTS.md](AGENTS.md).
   prepared launch references, identity checks and failure recovery. No NUC
   Codex installation is required; documentation-only updates retain the
   verified runtime release, and controller activation remains a separate task.
-  See [PR #1](https://github.com/kingchou007/fr3_stack_jz/pull/1) for the
+  See [PR #8](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/8) for the
   synchronization tools, JZ variant and update rules below.
 - `scripts/sync-nuc`: default image source labels to the upstream repository
   and allow the local `repository` setting to identify a maintained fork.
