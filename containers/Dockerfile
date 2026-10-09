@@ -24,6 +24,8 @@
 FROM ubuntu:24.04 AS builder
 
 ARG LIBFRANKA_VERSION=0.17.0
+ARG BUILD_JOBS=4
+ARG FR3_BUILD_TESTS=ON
 ARG DEBIAN_FRONTEND=noninteractive
 
 # robotpkg apt source for pinocchio 3.x. Installs under /opt/openrobots/.
@@ -76,7 +78,7 @@ RUN git clone --recursive https://github.com/frankarobotics/libfranka.git /tmp/l
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
         -DBUILD_TESTS=OFF \
         -DBUILD_EXAMPLES=OFF \
-    && cmake --build build -j \
+    && cmake --build build -j "${BUILD_JOBS}" \
     && cmake --install build \
     && rm -rf /tmp/libfranka
 
@@ -99,6 +101,7 @@ COPY src/              ./src/
 COPY include/          ./include/
 COPY proto/            ./proto/
 COPY third_party/      ./third_party/
+COPY tests/cpp/        ./tests/cpp/
 
 # -DFOUND_LIBATOMIC=TRUE works around a bug in libcapnp-dev 1.0.1 on noble:
 # its CapnProtoConfig.cmake uses check_library_exists(atomic __atomic_load_8)
@@ -109,7 +112,9 @@ RUN cmake -S . -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DFOUND_LIBATOMIC=TRUE \
         -DFR3_BUILD_TEACHING=ON \
-    && cmake --build build -j \
+        -DFR3_BUILD_TESTS=${FR3_BUILD_TESTS} \
+    && cmake --build build -j "${BUILD_JOBS}" \
+    && if [ "${FR3_BUILD_TESTS}" = ON ]; then ctest --test-dir build --output-on-failure; fi \
     && cmake --install build --prefix /opt/fr3-stack
 
 # ---- Stage 2: runtime -------------------------------------------------------

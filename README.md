@@ -27,6 +27,13 @@ already exists; fit-ready logging and independent simulation SI remain pending.
 Clone the repository on the NUC and workstation. The commands below follow the
 current `main` layout.
 
+For paired updates, see [workstation and NUC synchronization](sync.md): pin the
+release revision, record the running image, preserve site settings, and validate
+or roll back both sides during a maintenance window.
+The agent entry point is `bash scripts/sync-nuc build-local`; it freezes source,
+builds and exports the daemon image, and installs the matching workstation SDK.
+Real NUC inspection/build is deferred until the local config selects that phase.
+
 ```bash
 git clone https://github.com/Robot-Dexterity-Lab/fr3_stack.git
 cd fr3_stack

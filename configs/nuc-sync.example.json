@@ -1,0 +1,11 @@
+{
+  "phase": "local_build",
+  "ssh_target": null,
+  "nuc_repo": "~/fr3_stack_jz",
+  "release_root": "~/fr3-stack-releases",
+  "docker_command": ["docker"],
+  "local_docker_command": ["docker"],
+  "libfranka_version": null,
+  "python": null,
+  "min_free_bytes": 10737418240
+}

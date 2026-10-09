@@ -14,6 +14,20 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 DC=(docker compose --project-directory "$PWD" -f containers/compose.yml)
+# Consume the variant flag before dispatch so it works with every subcommand.
+jz=0
+args=()
+for arg in "$@"; do
+  if [[ "$arg" == --jz ]]; then
+    jz=1
+  else
+    args+=("$arg")
+  fi
+done
+set -- "${args[@]}"
+if (( jz )); then
+  DC+=(--project-name fr3_stack_jz -f containers/compose.jz.yml)
+fi
 
 # ----- helpers -----------------------------------------------------------
 
@@ -41,6 +55,8 @@ modes:
   hybrid  force/position hybrid (needs --ft)
 
 flags:
+  --jz         use Compose project fr3_stack_jz and containers/compose.jz.yml;
+                requires FR3_JZ_IMAGE, FR3_JZ_CALIB_DIR, FR3_JZ_RECORDINGS_DIR
   --ft         enable Bota EtherCAT FT sensor; uses FR3_FT_SENSOR_CONFIG
                 or /opt/bota/driver_config/bota_binary.json by default
   --no-ft      explicitly disable FT sensor (clears env)

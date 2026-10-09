@@ -1,0 +1,14 @@
+# Apply after compose.yml. Only the JZ project uses these images and mounts.
+# Render/review the configuration before separately authorized activation.
+name: fr3_stack_jz
+
+services:
+  fr3-stack:
+    image: "${FR3_JZ_IMAGE:?Set the exact prepared fr3-stack-jz image}"
+    volumes:
+      - "${FR3_JZ_CALIB_DIR:?Set the existing external calibration directory}:/opt/fr3-stack/calib:ro"
+      - "${FR3_JZ_RECORDINGS_DIR:?Set the external JZ recordings directory}:/recordings"
+  cart-test:
+    image: "${FR3_JZ_IMAGE:?Set the exact prepared fr3-stack-jz image}"
+  fr3-stack-ft:
+    image: "${FR3_JZ_IMAGE:?Set the exact prepared fr3-stack-jz image}"

@@ -1,1 +1,6 @@
 /recordings/
+/.setup/
+/.venv
+/fr3.yaml
+__pycache__/
+.pytest_cache/
