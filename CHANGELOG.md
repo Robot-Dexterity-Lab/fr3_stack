@@ -15,6 +15,8 @@ in [AGENTS.md](AGENTS.md).
   prepared launch references, identity checks and failure recovery. No NUC
   Codex installation is required; documentation-only updates retain the
   verified runtime release, and controller activation remains a separate task.
+  See [PR #1](https://github.com/kingchou007/fr3_stack_jz/pull/1) for the
+  synchronization tools, JZ variant and update rules below.
 - `containers/Dockerfile` (2026-10-09): limit build parallelism with `BUILD_JOBS`
   (default 4) and build/run hardware-free C++ tests by default. Set
   `FR3_BUILD_TESTS=OFF` explicitly to skip them; copy C++ fixtures into the
