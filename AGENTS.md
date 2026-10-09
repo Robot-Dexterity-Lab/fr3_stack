@@ -40,6 +40,9 @@ Trace feedback through daemon state publication -> `Robot._sub_loop` -> `State`.
 
 ## Follow the existing behavior when making a change
 
+- Write code, comments, documentation, commit messages and PR descriptions in
+  English. Keep site-specific paths, addresses and credentials in ignored local
+  configuration rather than tracked guides.
 - Targets are meters in the arm's base frame. Quaternions on the wire are xyzw;
   Eigen constructors use wxyz. Six-vectors order translation/force before
   rotation/torque. Inspect sensor mount transforms before comparing wrenches.
@@ -85,6 +88,64 @@ Trace feedback through daemon state publication -> `Robot._sub_loop` -> `State`.
    what still needs hardware evaluation. Update the affected `docs/` page.
 6. Add a `CHANGELOG.md` entry under `## [Unreleased]`. Every change gets one —
    see the changelog rule under "Follow the existing behavior" above.
+7. For workstation/NUC deployment changes, follow [sync.md](sync.md). Update its
+   compatibility and rollback notes when changing the schema, daemon, container
+   build, or deployment procedure. Record actual client and running-image
+   identities; a source checkout or package version alone does not verify the
+   deployed NUC binary. Preserve site configuration and persistent data.
+8. Update the workstation and NUC release together using `scripts/sync-nuc`.
+   Read `.setup/nuc-sync.json` and [sync.md](sync.md) before deployment work.
+   Follow the workstation-owned update rules below; the local phase configuration
+   determines whether preparation runs locally or through SSH.
+
+## Work PC owns NUC updates
+
+The work PC is the code-maintenance and orchestration site. Its agent performs
+the complete update through SSH; the NUC only needs SSH, Git, Docker and the
+configured build/diagnostic dependencies. Installing or running Codex or another
+agent on the NUC is not required. Do not delegate synchronization or compilation
+to an assumed NUC agent, or ask the operator to repeat already-authorized setup.
+
+1. Read the ignored `.setup/nuc-sync.json`, `.setup/site-role.json` when present,
+   and the latest successful release receipt. Use the configured SSH target and
+   directories; keep credentials and site-specific values out of tracked files.
+2. Classify the change. For C++, protocol, SDK, or build/dependency changes, run
+   the relevant work-PC tests and prepare a matched release. Model/checkpoint-only
+   changes need model tests. Documentation-only changes synchronize the affected
+   guides without rebuilding or changing the installed runtime release.
+3. In `local_build`, use `build-local` without SSH. When real preparation is
+   already authorized and `phase=real_prepare`, run `check` then `build` from
+   the work PC; retain the configured variant, including `--jz`. Verify the real
+   SSH target, Docker access, kernel, architecture, disk space and control-service
+   blockers. An active controller blocks preparation; never stop it automatically.
+4. Freeze the selected work-PC source, including reviewed uncommitted changes.
+   Select new source files explicitly with `--include`. Upload an independent
+   release and build/validate its image over SSH. Do not use a NUC `git pull`,
+   package version, or checkout commit as proof of the compiled daemon version.
+5. Let `build` install and validate the work-PC SDK from that frozen release.
+   When `nuc_sdk_python` is configured, install the NUC diagnostic SDK from the
+   same remote release through SSH and check its imports, dependencies and schema.
+   This NUC SDK step is agent-orchestrated; `build` does not perform it itself.
+   Keep model inference and GPU dependencies on the work PC.
+6. Prepare the NUC launch configuration through SSH using the exact image tag,
+   release directory and existing external site data. Validate Compose `config`
+   and record the previous SDK sources and prepared launch references before
+   changing them. Preserve addresses, ports, calibration, recordings and logs.
+   Preparation never runs `up`, restarts a daemon, or sends robot commands.
+7. Update a NUC development checkout only after comparing it with its last
+   installed file manifest. Preserve unexpected NUC edits and bring them back to
+   the work PC for review. Never force-pull, reset, or overwrite a dirty checkout
+   merely to make synchronization succeed. Immutable release upload remains the
+   normal deployment path.
+8. Record both actual SDK paths, full source/schema hashes, image ID/labels,
+   validation results and rollback references. On a detected failure, restore
+   changed SDK/launch references to the previous verified preparation where
+   reachable; preserve the previous source and image. If recovery is incomplete,
+   record the partial state and blocker instead of claiming paired success.
+9. Report image preparation separately from controller activation, firmware
+   compatibility and physical-robot validation. Activation requires a separately
+   arranged hardware task; a successful build or fake-daemon test does not prove
+   the running robot service has been updated.
 
 When several agents work on one task, give each a concrete file/module scope,
 input/output contract, and verification command. Agree on shared interface

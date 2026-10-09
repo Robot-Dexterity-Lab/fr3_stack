@@ -9,7 +9,46 @@ in [AGENTS.md](AGENTS.md).
 
 ## [Unreleased]
 
+### Changed
+- `AGENTS.md` and `sync.md` (2026-10-09): make the work-PC agent responsible
+  for the complete SSH-based NUC update, including configured diagnostic SDKs,
+  prepared launch references, identity checks and failure recovery. No NUC
+  Codex installation is required; documentation-only updates retain the
+  verified runtime release, and controller activation remains a separate task.
+  See [PR #8](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/8) for the
+  synchronization tools, JZ variant and update rules below.
+- `scripts/sync-nuc`: default image source labels to the upstream repository
+  and allow the local `repository` setting to identify a maintained fork.
+- `containers/Dockerfile` (2026-10-09): limit build parallelism with `BUILD_JOBS`
+  (default 4) and build/run hardware-free C++ tests by default. Set
+  `FR3_BUILD_TESTS=OFF` explicitly to skip them; copy C++ fixtures into the
+  builder and keep test executables out of the runtime image. Build results
+  do not establish firmware or RT compatibility.
+
 ### Added
+- `sync.md` and `AGENTS.md` (2026-10-09): document a separate NUC user checkout,
+  Docker build access, a minimal SDK environment, and role-specific preparation.
+  Pair releases from the workstation's selected source snapshot, including
+  uncommitted changes; preserve NUC checkout edits and keep controller
+  activation separate from code installation.
+- `scripts/sync-nuc --jz` and `fr3-stack --jz` (2026-10-09): prepare separate
+  `fr3-stack-jz` images and `jz/` source releases, with an explicit variant
+  label and a separate `fr3_stack_jz` Compose project. The JZ override pins
+  the selected image and external calibration/recording paths; preparation
+  preserves the existing stack and does not activate a controller. Configure
+  `build_jobs` to limit build memory usage on the NUC.
+- `scripts/sync-nuc` (2026-10-09): local image build/export plus matching editable
+  SDK installation; later SSH inspection and NUC snapshot/build use the same
+  source hash. Reports distinguish prepared images from active robot deployment.
+  Dummy-address, active-controller, snapshot-integrity, and client-rollback
+  guards are tested without hardware. Both project agent guides select local
+  builds first; real NUC preparation requires its configured phase.
+- `sync.md` (2026-10-09): workstation/NUC release synchronization, pinned source
+  revisions and image identities, site configuration preservation, staged
+  activation, validation, and rollback. README and agent-guide links make the
+  workflow discoverable. Dummy-IP installation is distinguished from verified
+  NUC deployment; documentation does not claim a runtime version handshake.
+
 - Independent `Robot.start_recording` / `stop_recording` / `recording_status`
   and `fr3-recording` CLI, with acknowledged Cap'n Proto REQ/REP on port 5557
   (`--recording-port`). Recording can be toggled without daemon restart or
