@@ -23,6 +23,8 @@ needs SSH access to a NUC with Python 3 and Docker.
 - `docker_command` and `local_docker_command`: use `["docker"]`, or
   `["sudo", "-n", "docker"]` when the appropriate terminal is already authenticated.
 - `build_jobs`: C++ build parallelism; default 4, typically 2 on a smaller NUC.
+- `repository`: image source label; defaults to the upstream FR3 repository.
+  Set it to the actual fork URL when preparing source maintained in a fork.
 - `variant=jz`: prepare the separate JZ image and source namespace.
 - `nuc_sdk_python`: optional existing NUC diagnostic interpreter. The work-PC
   agent updates this SDK over SSH after the build; the current build command does

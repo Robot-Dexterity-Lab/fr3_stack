@@ -1,5 +1,6 @@
 {
   "phase": "local_build",
+  "repository": "https://github.com/Robot-Dexterity-Lab/fr3_stack.git",
   "ssh_target": null,
   "nuc_repo": "~/fr3_stack_jz",
   "release_root": "~/fr3-stack-releases",

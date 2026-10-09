@@ -93,7 +93,9 @@ def settings(path, args):
     config.setdefault("min_free_bytes", 10 * 1024**3)
     if not isinstance(config["min_free_bytes"], int) or config["min_free_bytes"] <= 0:
         raise RuntimeError("min_free_bytes must be a positive integer")
-    config["repository"] = "https://github.com/kingchou007/fr3_stack_jz.git"
+    config.setdefault("repository", "https://github.com/Robot-Dexterity-Lab/fr3_stack.git")
+    if not isinstance(config["repository"], str) or not config["repository"].strip():
+        raise RuntimeError("repository must be a nonempty source repository URL")
     return config
 
 

@@ -45,6 +45,18 @@ def test_jz_variant_uses_separate_releases_and_images(tmp_path):
     assert remote.image_repository(default) == "fr3-stack"
 
 
+@pytest.mark.parametrize("repository", [None, "https://github.com/example/fr3-stack.git"])
+def test_source_repository_defaults_to_upstream_and_preserves_fork(tmp_path, repository):
+    path = tmp_path / "config.json"
+    value = json.loads((ROOT / "configs/nuc-sync.example.json").read_text())
+    value.pop("repository", None)
+    if repository is not None:
+        value["repository"] = repository
+    path.write_text(json.dumps(value))
+    config = sync.settings(path, argparse.Namespace(action="build-local"))
+    assert config["repository"] == (repository or "https://github.com/Robot-Dexterity-Lab/fr3_stack.git")
+
+
 @pytest.mark.parametrize("value", [0, -1, True, "2", 65])
 def test_invalid_build_parallelism_is_rejected(tmp_path, value):
     path = tmp_path / "config.json"
