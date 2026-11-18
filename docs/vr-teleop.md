@@ -1,0 +1,33 @@
+# VR teleoperation
+
+The optional `vr-teleop` Compose profile runs the private
+`ghcr.io/anthonzh/fr3-xr-teleop` image. Run this client on the Linux XR
+workstation, where the headset service and X11 display are available. The
+FR3 daemon stays on the NUC and owns the 1 kHz control loop.
+
+Log in to GHCR on the workstation with a GitHub token that can read the
+private package (`read:packages`). Set `FR3_TELEOP_IMAGE` to a tested commit
+SHA tag when you need to pin the image.
+
+Start the daemon on the NUC in joint-impedance mode:
+
+```bash
+./fr3-stack up joint
+```
+
+Then run the client from this checkout on the workstation:
+
+```bash
+./fr3-stack vr-teleop xhand --sim
+FR3_TELEOP_HOST=nuc.local ./fr3-stack vr-teleop xhand --transmit
+```
+
+Use `plate` in place of `xhand` for the revised plate. `--sim` uses a
+kinematic FR3 bridge and sends no robot commands. The physical mode requires
+fresh state and the `joint_impedance` controller. Hold the right grip to move;
+releasing it holds the measured joint pose. The wrapper uses `docker compose
+run --no-deps`, so it does not start or restart the NUC daemon.
+
+The workstation needs `DISPLAY`, `XAUTHORITY`, and `/dev/dri` for the MuJoCo
+viewer. The XHand profile controls only the arm pose; finger motors are not
+driven. Hardware behavior has not yet been validated with the lab FR3 stack.

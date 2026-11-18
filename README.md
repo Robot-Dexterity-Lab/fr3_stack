@@ -15,6 +15,8 @@ ZMQ. The daemon runs the controller through libfranka at 1 kHz.
 - Bota F/T sensor integration and calibration tools.
 - Optional [1 kHz recording](docs/recording.md), with independent Python and
   `fr3-recording` start/stop/status commands while the controller keeps running.
+- Optional [VR teleoperation](docs/vr-teleop.md) from a workstation container
+  through the joint-impedance controller.
 - Experimental dual-arm coordination with one NUC per robot, paired target validation, and fault handling.
 
 For joint-space simulation calibration, see the
