@@ -1,0 +1,10 @@
+# Workstation-only XR client. The NUC daemon is managed independently.
+services:
+  vr-teleop:
+    profiles: ["vr-teleop"]
+    image: ${FR3_TELEOP_IMAGE:-ghcr.io/anthonzh/fr3-xr-teleop@sha256:68430b7ffc6cde220fdc85e47811509e89f42e9378050b0f74e5139935834834}
+    network_mode: host
+    environment:
+      FR3_TELEOP_HOST: "${FR3_TELEOP_HOST:-127.0.0.1}"
+    command: ["xhand", "--sim"]
+    restart: "no"

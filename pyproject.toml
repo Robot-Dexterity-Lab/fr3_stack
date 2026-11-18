@@ -17,6 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ik = ["ssik==9.0.0"]
 dev = ["pytest>=7"]
 
 [project.scripts]

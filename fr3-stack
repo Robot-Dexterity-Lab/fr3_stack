@@ -45,6 +45,7 @@ usage:
   ./fr3-stack ps
   ./fr3-stack build [--no-cache]
   ./fr3-stack ft <up|down|logs|ps> [...]
+  ./fr3-stack vr-teleop <xhand|plate> <--sim|--transmit>
   ./fr3-stack <other docker-compose subcommand> ...
 
 modes:
@@ -95,6 +96,8 @@ examples:
   FR3_ROBOT_IP=10.0.0.7 ./fr3-stack up cart
   ./fr3-stack ft up                        # bota-only smoke test
   FR3_FT_HZ=50 ./fr3-stack ft up           # slower CSV rate
+  ./fr3-stack vr-teleop xhand --sim         # run on XR workstation
+  FR3_TELEOP_HOST=nuc.local ./fr3-stack vr-teleop xhand --transmit
 EOF
 }
 
@@ -107,6 +110,24 @@ case "$cmd" in
   help|-h|--help|"")
     usage
     exit 0
+    ;;
+
+  vr-teleop)
+    profile="${1:-}"
+    case "$profile" in
+      xhand|plate) shift ;;
+      *) die "vr-teleop needs xhand or plate profile" ;;
+    esac
+    mode="${1:-}"
+    case "$mode" in
+      --sim|--transmit) shift ;;
+      *) die "vr-teleop needs --sim or --transmit" ;;
+    esac
+    if [[ "$mode" == --transmit && -z "${FR3_TELEOP_HOST:-}" ]]; then
+      die "set FR3_TELEOP_HOST to the NUC address before --transmit"
+    fi
+    VR_DC=(docker compose --project-directory "$PWD" -f containers/compose.vr-teleop.yml)
+    exec "${VR_DC[@]}" --profile vr-teleop run --rm --no-deps vr-teleop "$profile" "$mode" "$@"
     ;;
 
   up)

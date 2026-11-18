@@ -164,6 +164,17 @@ A normal `git pull` does not replace paired SDK/image preparation.
 
 ## Which changes require an update
 
+The optional VR teleop image and `containers/compose.vr-teleop.yml` are a
+separate workstation client release. Its
+GHCR digest should be pinned to a tested commit and its bundled Python client
+schema checked against the running NUC daemon before physical use. Updating
+that image does not rebuild or activate the NUC daemon. To roll back the VR
+client, restore the previous `FR3_TELEOP_IMAGE` digest and rerun the client; keep
+the existing NUC image and site settings unchanged. See [VR teleoperation](docs/vr-teleop.md).
+The optional SSIK pose-to-joint adapter runs in Python and does not change the
+NUC wire protocol or controller. Keep its nominal FR3 geometry and any tool
+offset calibrated to the installed arm before sending its targets.
+
 | Change | Work PC | NUC |
 | --- | --- | --- |
 | Python SDK implementation | Install/test the selected SDK | Refresh a configured diagnostic SDK; assess interface compatibility |
