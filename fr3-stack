@@ -126,16 +126,8 @@ case "$cmd" in
     if [[ "$mode" == --transmit && -z "${FR3_TELEOP_HOST:-}" ]]; then
       die "set FR3_TELEOP_HOST to the NUC address before --transmit"
     fi
-    if [[ -z "${DISPLAY:-}" ]]; then
-      die "vr-teleop needs an X11 DISPLAY on this workstation"
-    fi
-    if [[ -z "${XAUTHORITY:-}" || ! -f "$XAUTHORITY" ]]; then
-      die "vr-teleop needs XAUTHORITY pointing to an existing X11 authority file"
-    fi
-    if [[ ! -d /dev/dri ]]; then
-      die "vr-teleop needs /dev/dri for MuJoCo rendering"
-    fi
-    exec "${DC[@]}" --profile vr-teleop run --rm --no-deps vr-teleop "$profile" "$mode" "$@"
+    VR_DC=(docker compose --project-directory "$PWD" -f containers/compose.vr-teleop.yml)
+    exec "${VR_DC[@]}" --profile vr-teleop run --rm --no-deps vr-teleop "$profile" "$mode" "$@"
     ;;
 
   up)

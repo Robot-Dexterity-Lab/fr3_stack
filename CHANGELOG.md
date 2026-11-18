@@ -13,6 +13,9 @@ in [AGENTS.md](AGENTS.md).
 - `fr3-stack vr-teleop` and the optional `vr-teleop` Compose profile launch
   the private XR teleoperation image on a workstation. The client uses the
   existing joint-impedance command path and does not start the NUC daemon.
+  The client Compose configuration lives in a separate file and runs headless.
+  `fr3_stack.ssik_adapter.Fr3PoseIK` optionally converts end-effector pose
+  targets into bounded FR3 joint targets for policies (`fr3-stack[ik]`).
   See [PR #10](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/10).
 
 ### Changed
