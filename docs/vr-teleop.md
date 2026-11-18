@@ -2,13 +2,13 @@
 
 The optional `vr-teleop` Compose profile runs the private
 `ghcr.io/anthonzh/fr3-xr-teleop` image. Run this client on the Linux XR
-workstation, where the headset service and X11 display are available. The
+workstation, where the headset service is available. The
 FR3 daemon stays on the NUC and owns the 1 kHz control loop.
 
 Log in to GHCR on the workstation with a GitHub token that can read the
 private package (`read:packages`). The Compose profile defaults to the
 validated image digest from teleop commit
-`039d1bc104fae2ce2ec3d5c518b621c78c788f2a`. Set `FR3_TELEOP_IMAGE` to
+`ee84044228bfe78250d22c4958ddcbe648a0891c`. Set `FR3_TELEOP_IMAGE` to
 another tested digest when updating or rolling back the client.
 
 Start the daemon on the NUC in joint-impedance mode:
