@@ -149,7 +149,7 @@ services:
   # joint_impedance mode; `fr3-stack vr-teleop` uses Compose run --no-deps.
   vr-teleop:
     profiles: ["vr-teleop"]
-    image: ${FR3_TELEOP_IMAGE:-ghcr.io/anthonzh/fr3-xr-teleop:latest}
+    image: ${FR3_TELEOP_IMAGE:-ghcr.io/anthonzh/fr3-xr-teleop@sha256:f6720cf38314e214a1bb9941132b983cc5f9fc39633950a8354af7b1b5d5b1e4}
     network_mode: host
     environment:
       DISPLAY: "${DISPLAY:-:0}"

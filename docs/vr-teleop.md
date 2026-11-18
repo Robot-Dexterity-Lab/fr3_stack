@@ -6,8 +6,10 @@ workstation, where the headset service and X11 display are available. The
 FR3 daemon stays on the NUC and owns the 1 kHz control loop.
 
 Log in to GHCR on the workstation with a GitHub token that can read the
-private package (`read:packages`). Set `FR3_TELEOP_IMAGE` to a tested commit
-SHA tag when you need to pin the image.
+private package (`read:packages`). The Compose profile defaults to the
+validated image digest from teleop commit
+`f8b6b1916281d7c87b1671bc148ed3b2461c4a1c`. Set `FR3_TELEOP_IMAGE` to
+another tested digest when updating or rolling back the client.
 
 Start the daemon on the NUC in joint-impedance mode:
 

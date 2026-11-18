@@ -165,10 +165,10 @@ A normal `git pull` does not replace paired SDK/image preparation.
 ## Which changes require an update
 
 The optional VR teleop image is a separate workstation client release. Its
-GHCR tag should be pinned to a tested commit and its bundled Python client
+GHCR digest should be pinned to a tested commit and its bundled Python client
 schema checked against the running NUC daemon before physical use. Updating
 that image does not rebuild or activate the NUC daemon. To roll back the VR
-client, restore the previous `FR3_TELEOP_IMAGE` tag and rerun the client; keep
+client, restore the previous `FR3_TELEOP_IMAGE` digest and rerun the client; keep
 the existing NUC image and site settings unchanged. See [VR teleoperation](docs/vr-teleop.md).
 
 | Change | Work PC | NUC |
