@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from fr3_stack.ssik_adapter import Fr3PoseIK
+from fr3_stack.ssik_adapter import Fr3PoseIK, fixed_tool_transform_from_urdf
 
 
 class FakeFr3Solver:
@@ -69,3 +69,21 @@ def test_prebuilt_fr3_round_trip_when_ssik_is_installed():
     result = Fr3PoseIK().solve(fr3_ik.fk(q), q)
     assert result is not None
     np.testing.assert_allclose(result, q, atol=1e-5)
+
+
+def test_fixed_tool_transform_from_urdf(tmp_path):
+    urdf = tmp_path / "arm.urdf"
+    urdf.write_text('''<robot name="test">
+      <joint name="mount" type="fixed">
+        <parent link="fr3_link8"/><child link="mount_link"/>
+        <origin xyz="0 0 0.1" rpy="0 0 1.5707963267948966"/>
+      </joint>
+      <joint name="tool" type="fixed">
+        <parent link="mount_link"/><child link="tool_link"/>
+        <origin xyz="0.2 0 0" rpy="0 0 0"/>
+      </joint>
+    </robot>''')
+    transform = fixed_tool_transform_from_urdf(urdf, "tool_link")
+    np.testing.assert_allclose(transform[:3, 3], [0, 0.2, 0.1], atol=1e-12)
+    with pytest.raises(ValueError, match="No fixed URDF chain"):
+        fixed_tool_transform_from_urdf(urdf, "missing_link")

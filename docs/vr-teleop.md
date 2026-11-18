@@ -8,7 +8,7 @@ FR3 daemon stays on the NUC and owns the 1 kHz control loop.
 Log in to GHCR on the workstation with a GitHub token that can read the
 private package (`read:packages`). The Compose profile defaults to the
 validated image digest from teleop commit
-`f8b6b1916281d7c87b1671bc148ed3b2461c4a1c`. Set `FR3_TELEOP_IMAGE` to
+`039d1bc104fae2ce2ec3d5c518b621c78c788f2a`. Set `FR3_TELEOP_IMAGE` to
 another tested digest when updating or rolling back the client.
 
 Start the daemon on the NUC in joint-impedance mode:
@@ -47,8 +47,9 @@ solution is within its joint-step bound; the policy should hold and choose a
 closer pose target. It does not send commands or change the daemon controller.
 
 ```python
-from fr3_stack.ssik_adapter import Fr3PoseIK
+from fr3_stack.ssik_adapter import Fr3PoseIK, fixed_tool_transform_from_urdf
 
+flange_T_tool = fixed_tool_transform_from_urdf(robot_urdf, "right_hand_link")
 ik = Fr3PoseIK(flange_T_tool=flange_T_tool)
 q_target = ik.solve(base_T_tool, robot.state.q)
 if q_target is not None:

@@ -10,6 +10,44 @@ from __future__ import annotations
 import numpy as np
 
 
+def fixed_tool_transform_from_urdf(urdf_path, tool_link: str,
+                                   flange_link: str = "fr3_link8") -> np.ndarray:
+    """Compose fixed URDF joints from the FR3 flange to a mounted tool link."""
+    import xml.etree.ElementTree as ET
+    from scipy.spatial.transform import Rotation
+
+    children: dict[str, list[tuple[str, np.ndarray]]] = {}
+    for joint in ET.parse(urdf_path).getroot().findall("joint"):
+        if joint.get("type") != "fixed":
+            continue
+        origin = joint.find("origin")
+        xyz = [float(v) for v in (origin.get("xyz", "0 0 0") if origin is not None
+                                  else "0 0 0").split()]
+        rpy = [float(v) for v in (origin.get("rpy", "0 0 0") if origin is not None
+                                  else "0 0 0").split()]
+        if len(xyz) != 3 or len(rpy) != 3:
+            raise ValueError("URDF fixed joint origin needs three xyz and rpy values")
+        transform = np.eye(4)
+        transform[:3, :3] = Rotation.from_euler("xyz", rpy).as_matrix()
+        transform[:3, 3] = xyz
+        parent = joint.find("parent").get("link")
+        child = joint.find("child").get("link")
+        children.setdefault(parent, []).append((child, transform))
+
+    frontier = [(flange_link, np.eye(4))]
+    visited = set()
+    while frontier:
+        link, flange_T_link = frontier.pop()
+        if link == tool_link:
+            return flange_T_link
+        if link in visited:
+            continue
+        visited.add(link)
+        for child, link_T_child in children.get(link, []):
+            frontier.append((child, flange_T_link @ link_T_child))
+    raise ValueError(f"No fixed URDF chain from {flange_link} to {tool_link}")
+
+
 def _pose(value, name: str) -> np.ndarray:
     pose = np.asarray(value, dtype=float)
     if (pose.shape != (4, 4) or not np.isfinite(pose).all()
