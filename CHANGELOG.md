@@ -13,7 +13,7 @@ in [AGENTS.md](AGENTS.md).
 - `fr3-stack vr-teleop` and the optional `vr-teleop` Compose profile launch
   the private XR teleoperation image on a workstation. The client uses the
   existing joint-impedance command path and does not start the NUC daemon.
-  See [PR #TBD](https://github.com/Robot-Dexterity-Lab/fr3_stack/pulls).
+  See [PR #9](https://github.com/Robot-Dexterity-Lab/fr3_stack/pull/9).
 
 ### Changed
 - `AGENTS.md` and `sync.md` (2026-10-09): make the work-PC agent responsible
